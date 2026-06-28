@@ -32,7 +32,7 @@ __export(main_exports, {
   default: () => SermonPrintPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/settings.ts
 var import_obsidian = require("obsidian");
@@ -639,7 +639,102 @@ body .sermonprint-manuscript-editor blockquote {
       .page-break { border: none !important; margin: 0 !important; }
       .page-break::after { content: "" !important; }
     }
-  `;
+  
+
+/* SermonPrint Engine V2 */
+body .sp-v2-root {
+  height: 100%;
+  overflow: auto;
+  background: #cfcfcf;
+  padding: 18px 0 48px;
+}
+
+body .sp-v2-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(245,245,245,.95);
+  border-bottom: 1px solid rgba(0,0,0,.12);
+}
+
+body .sp-v2-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+body .sp-page {
+  position: relative;
+  box-sizing: border-box;
+  background: white;
+  color: #111;
+  box-shadow: 0 0 20px rgba(0,0,0,.22);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13pt;
+  line-height: 1.45;
+}
+
+body .sp-page-gap {
+  height: .35in;
+}
+
+body .sp-page-number {
+  position: absolute;
+  right: -0.64in;
+  top: .12in;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #8b0000;
+  background: #f8f8f8;
+  border: 1px solid rgba(139,0,0,.25);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+body .sp-page-content h1 {
+  font-size: 20pt;
+  line-height: 1.08;
+  margin: 0 0 .18in;
+}
+
+body .sp-page-content h2 {
+  font-size: 15.5pt;
+  line-height: 1.15;
+  margin: .10in 0 .10in;
+  break-after: avoid;
+}
+
+body .sp-page-content p {
+  margin: 0 0 .16in;
+  orphans: 3;
+  widows: 3;
+}
+
+body .sp-page-content blockquote {
+  margin: .12in 0 .18in;
+  padding-left: .18in;
+  border-left: 3px solid #8b0000;
+  color: #8b0000;
+  font-style: italic;
+}
+
+body .sp-page-content .sp-main-point {
+  border-top: 1px solid rgba(139,0,0,.35);
+  padding-top: .08in;
+  color: #111;
+}
+
+body .sp-page-content .sp-transition {
+  font-weight: 700;
+  color: #333;
+}
+
+`;
   document.head.appendChild(style);
 }
 function removeLayoutStyles() {
@@ -1157,15 +1252,251 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
   }
 };
 
+// src/ui/ManuscriptEditorV2.ts
+var import_obsidian4 = require("obsidian");
+
+// src/engine/Parser.ts
+function idFor(index) {
+  return `block-${index + 1}`;
+}
+function detectType(line) {
+  const clean = line.trim().toLowerCase();
+  if (clean.startsWith("# ")) return "title";
+  if (clean.startsWith("## point") || clean.startsWith("## main point")) return "mainPoint";
+  if (clean.startsWith("## ")) return "heading";
+  if (clean.startsWith(">")) return "scripture";
+  if (clean.startsWith("**transition")) return "transition";
+  if (clean.startsWith("**application")) return "application";
+  if (clean.startsWith("**invitation")) return "invitation";
+  if (clean.startsWith("**conclusion")) return "conclusion";
+  return "paragraph";
+}
+function parseMarkdownToDocument(markdown, fallbackTitle = "Untitled Sermon") {
+  const chunks = markdown.split(/\n{2,}/).map((x) => x.trim()).filter(Boolean);
+  const blocks = chunks.map((chunk, index) => {
+    const type = detectType(chunk);
+    const level = chunk.startsWith("### ") ? 3 : chunk.startsWith("## ") ? 2 : chunk.startsWith("# ") ? 1 : void 0;
+    return {
+      id: idFor(index),
+      type,
+      level,
+      text: chunk
+    };
+  });
+  const titleBlock = blocks.find((b) => b.type === "title");
+  const title = (titleBlock == null ? void 0 : titleBlock.text.replace(/^#\s+/, "").trim()) || fallbackTitle;
+  return {
+    id: "sermon-document",
+    title,
+    blocks
+  };
+}
+
+// src/engine/Page.ts
+var DEFAULT_PAGE_SETTINGS = {
+  widthIn: 5.5,
+  heightIn: 8.5,
+  marginTopIn: 0.55,
+  marginRightIn: 0.55,
+  marginBottomIn: 0.55,
+  marginLeftIn: 0.55,
+  fontSizePt: 13,
+  lineHeight: 1.45,
+  paragraphSpacingPt: 8
+};
+function inchesToPx(value) {
+  return value * 96;
+}
+function printableHeightPx(settings) {
+  return inchesToPx(settings.heightIn - settings.marginTopIn - settings.marginBottomIn);
+}
+
+// src/engine/Paginator.ts
+function estimateBlockHeight(block, settings) {
+  const charsPerLine = 54;
+  const text = block.text.replace(/[#>*_`-]/g, "").trim();
+  const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
+  const fontPx = settings.fontSizePt * 1.333;
+  const linePx = fontPx * settings.lineHeight;
+  const spacingPx = settings.paragraphSpacingPt * 1.333;
+  let multiplier = 1;
+  if (block.type === "title") multiplier = 1.8;
+  if (block.type === "heading") multiplier = 1.5;
+  if (block.type === "mainPoint") multiplier = 1.6;
+  if (block.type === "scripture" || block.type === "quote") multiplier = 1.15;
+  return lines * linePx * multiplier + spacingPx;
+}
+function keepWithNext(block) {
+  return block.type === "heading" || block.type === "mainPoint" || block.type === "title";
+}
+function paginateDocument(document2, settings) {
+  const availableHeight = printableHeightPx(settings);
+  const pages = [
+    {
+      number: 1,
+      blocks: [],
+      usedHeightPx: 0,
+      availableHeightPx: availableHeight
+    }
+  ];
+  function currentPage() {
+    return pages[pages.length - 1];
+  }
+  function newPage() {
+    const page = {
+      number: pages.length + 1,
+      blocks: [],
+      usedHeightPx: 0,
+      availableHeightPx: availableHeight
+    };
+    pages.push(page);
+    return page;
+  }
+  for (let index = 0; index < document2.blocks.length; index++) {
+    const block = document2.blocks[index];
+    const blockHeight = estimateBlockHeight(block, settings);
+    let heightToFit = blockHeight;
+    const next = document2.blocks[index + 1];
+    if (keepWithNext(block) && next) {
+      heightToFit += estimateBlockHeight(next, settings);
+    }
+    if (currentPage().blocks.length > 0 && currentPage().usedHeightPx + heightToFit > availableHeight) {
+      newPage();
+    }
+    currentPage().blocks.push(block);
+    currentPage().usedHeightPx += blockHeight;
+  }
+  return pages;
+}
+
+// src/renderer/BlockRenderer.ts
+function stripMarkdown(text) {
+  return text.replace(/^#{1,6}\s+/, "").replace(/^>\s?/, "").replace(/\*\*/g, "").trim();
+}
+function blockToHtml(block) {
+  const text = stripMarkdown(block.text);
+  switch (block.type) {
+    case "title":
+      return `<h1>${text}</h1>`;
+    case "heading":
+      return `<h2>${text}</h2>`;
+    case "mainPoint":
+      return `<h2 class="sp-main-point">${text}</h2>`;
+    case "scripture":
+      return `<blockquote class="sp-scripture">${text}</blockquote>`;
+    case "quote":
+      return `<blockquote>${text}</blockquote>`;
+    case "transition":
+      return `<p class="sp-transition">${text}</p>`;
+    case "application":
+      return `<p class="sp-application">${text}</p>`;
+    case "invitation":
+      return `<p class="sp-invitation">${text}</p>`;
+    case "conclusion":
+      return `<h2>${text}</h2>`;
+    default:
+      return `<p>${text}</p>`;
+  }
+}
+
+// src/renderer/PageRenderer.ts
+function renderPagesToHtml(pages, settings) {
+  return pages.map((page) => {
+    const blocks = page.blocks.map(blockToHtml).join("\\n");
+    return `
+<section class="sp-page" data-page="${page.number}" style="
+  width: ${settings.widthIn}in;
+  min-height: ${settings.heightIn}in;
+  padding: ${settings.marginTopIn}in ${settings.marginRightIn}in ${settings.marginBottomIn}in ${settings.marginLeftIn}in;
+">
+  <div class="sp-page-number">Page ${page.number}</div>
+  <div class="sp-page-content">
+    ${blocks}
+  </div>
+</section>`;
+  }).join('\n<div class="sp-page-gap"></div>\n');
+}
+
+// src/ui/ManuscriptEditorV2.ts
+var SERMONPRINT_V2_VIEW_TYPE = "sermonprint-manuscript-engine-v2";
+var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.file = null;
+    this.rootEl = null;
+    this.plugin = plugin;
+  }
+  getViewType() {
+    return SERMONPRINT_V2_VIEW_TYPE;
+  }
+  getDisplayText() {
+    return "SermonPrint Engine V2";
+  }
+  async onOpen() {
+    this.containerEl.empty();
+    this.rootEl = this.containerEl.createDiv({ cls: "sp-v2-root" });
+    const toolbar = this.rootEl.createDiv({ cls: "sp-v2-toolbar" });
+    toolbar.createEl("button", { text: "Refresh Pages" }).onclick = () => this.renderCurrentFile();
+    toolbar.createEl("button", { text: "Back to Markdown" }).onclick = () => this.openMarkdownFile();
+    this.rootEl.createDiv({ cls: "sp-v2-pages" });
+    await this.renderCurrentFile();
+  }
+  async setFile(file) {
+    this.file = file;
+    await this.renderCurrentFile();
+  }
+  async renderCurrentFile() {
+    var _a;
+    const pagesEl = (_a = this.rootEl) == null ? void 0 : _a.querySelector(".sp-v2-pages");
+    if (!pagesEl) return;
+    const active = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
+    const file = this.file || (active == null ? void 0 : active.file);
+    if (!file) {
+      pagesEl.setText("Open a sermon note first.");
+      return;
+    }
+    this.file = file;
+    const markdown = await this.app.vault.read(file);
+    const document2 = parseMarkdownToDocument(markdown, file.basename);
+    const pages = paginateDocument(document2, DEFAULT_PAGE_SETTINGS);
+    pagesEl.innerHTML = renderPagesToHtml(pages, DEFAULT_PAGE_SETTINGS);
+  }
+  async openMarkdownFile() {
+    if (!this.file) return;
+    await this.app.workspace.openLinkText(this.file.path, "", false);
+  }
+};
+async function openManuscriptEngineV2(plugin) {
+  const active = plugin.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
+  const file = active == null ? void 0 : active.file;
+  if (!file) {
+    new import_obsidian4.Notice("Open a sermon note first.");
+    return;
+  }
+  const leaf = plugin.app.workspace.getLeaf("tab");
+  await leaf.setViewState({ type: SERMONPRINT_V2_VIEW_TYPE, active: true });
+  const view = leaf.view;
+  await view.setFile(file);
+}
+
 // src/main.ts
-var SermonPrintPlugin = class extends import_obsidian4.Plugin {
+var SermonPrintPlugin = class extends import_obsidian5.Plugin {
   async onload() {
     await this.loadSettings();
     this.exporter = new SermonPrintExporter(this, this.settings);
+    this.addCommand({
+      id: "sermonprint-engine-v2",
+      name: "Engine V2",
+      callback: () => openManuscriptEngineV2(this)
+    });
     this.addSettingTab(new SermonPrintSettingTab(this.app, this));
     this.registerView(
       VIEW_TYPE_SERMONPRINT_MANUSCRIPT,
       (leaf) => new SermonPrintManuscriptView(leaf, this)
+    );
+    this.registerView(
+      SERMONPRINT_V2_VIEW_TYPE,
+      (leaf) => new ManuscriptEditorV2View(leaf, this)
     );
     this.refreshLayoutStyles();
     this.addCommand({
@@ -1180,7 +1511,7 @@ var SermonPrintPlugin = class extends import_obsidian4.Plugin {
   async openManuscriptView() {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
-      new import_obsidian4.Notice("Open a sermon note first.");
+      new import_obsidian5.Notice("Open a sermon note first.");
       return;
     }
     let leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_SERMONPRINT_MANUSCRIPT)[0];

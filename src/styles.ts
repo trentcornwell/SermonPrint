@@ -513,7 +513,102 @@ body .sermonprint-manuscript-editor blockquote {
       .page-break { border: none !important; margin: 0 !important; }
       .page-break::after { content: "" !important; }
     }
-  `;
+  
+
+/* SermonPrint Engine V2 */
+body .sp-v2-root {
+  height: 100%;
+  overflow: auto;
+  background: #cfcfcf;
+  padding: 18px 0 48px;
+}
+
+body .sp-v2-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(245,245,245,.95);
+  border-bottom: 1px solid rgba(0,0,0,.12);
+}
+
+body .sp-v2-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+body .sp-page {
+  position: relative;
+  box-sizing: border-box;
+  background: white;
+  color: #111;
+  box-shadow: 0 0 20px rgba(0,0,0,.22);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13pt;
+  line-height: 1.45;
+}
+
+body .sp-page-gap {
+  height: .35in;
+}
+
+body .sp-page-number {
+  position: absolute;
+  right: -0.64in;
+  top: .12in;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #8b0000;
+  background: #f8f8f8;
+  border: 1px solid rgba(139,0,0,.25);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+body .sp-page-content h1 {
+  font-size: 20pt;
+  line-height: 1.08;
+  margin: 0 0 .18in;
+}
+
+body .sp-page-content h2 {
+  font-size: 15.5pt;
+  line-height: 1.15;
+  margin: .10in 0 .10in;
+  break-after: avoid;
+}
+
+body .sp-page-content p {
+  margin: 0 0 .16in;
+  orphans: 3;
+  widows: 3;
+}
+
+body .sp-page-content blockquote {
+  margin: .12in 0 .18in;
+  padding-left: .18in;
+  border-left: 3px solid #8b0000;
+  color: #8b0000;
+  font-style: italic;
+}
+
+body .sp-page-content .sp-main-point {
+  border-top: 1px solid rgba(139,0,0,.35);
+  padding-top: .08in;
+  color: #111;
+}
+
+body .sp-page-content .sp-transition {
+  font-weight: 700;
+  color: #333;
+}
+
+`;
 
   document.head.appendChild(style);
 }

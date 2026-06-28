@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS, SermonPrintSettings, SermonPrintSettingTab } from "./
 import { injectLayoutStyles, removeLayoutStyles } from "./styles";
 import { SermonPrintExporter, type ExportMode } from "./exporter";
 import { SermonPrintManuscriptView, VIEW_TYPE_SERMONPRINT_MANUSCRIPT } from "./manuscriptView";
+import { ManuscriptEditorV2View, SERMONPRINT_V2_VIEW_TYPE, openManuscriptEngineV2 } from "./ui/ManuscriptEditorV2";
 
 export default class SermonPrintPlugin extends Plugin {
   settings: SermonPrintSettings;
@@ -11,11 +12,22 @@ export default class SermonPrintPlugin extends Plugin {
   async onload(): Promise<void> {
     await this.loadSettings();
     this.exporter = new SermonPrintExporter(this, this.settings);
+    this.addCommand({
+      id: "sermonprint-engine-v2",
+      name: "Engine V2",
+      callback: () => openManuscriptEngineV2(this),
+    });
+
     this.addSettingTab(new SermonPrintSettingTab(this.app, this));
 
     this.registerView(
       VIEW_TYPE_SERMONPRINT_MANUSCRIPT,
       (leaf: WorkspaceLeaf) => new SermonPrintManuscriptView(leaf, this)
+    );
+
+    this.registerView(
+      SERMONPRINT_V2_VIEW_TYPE,
+      (leaf: WorkspaceLeaf) => new ManuscriptEditorV2View(leaf, this)
     );
 
     this.refreshLayoutStyles();
