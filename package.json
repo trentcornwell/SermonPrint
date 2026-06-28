@@ -1,0 +1,21 @@
+{
+  "name": "sermonprint",
+  "version": "2.3.0",
+  "description": "An Obsidian plugin for writing and exporting half-sheet sermon manuscripts and booklets.",
+  "main": "main.js",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "dev": "node esbuild.config.mjs --watch"
+  },
+  "dependencies": {
+    "markdown-it": "^14.1.0",
+    "pdf-lib": "^1.17.1",
+    "playwright": "^1.49.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "obsidian": "^1.8.0",
+    "typescript": "^5.0.0"
+  }
+}
