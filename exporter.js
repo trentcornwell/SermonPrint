@@ -51,7 +51,7 @@ const keepCss = keepTogetherRules === "true" ? `
 h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
 blockquote, table, pre, .callout { break-inside: avoid; page-break-inside: avoid; }
 li { break-inside: avoid; page-break-inside: avoid; }
-p { orphans: 3; widows: 3; }
+p { orphans: 3; widows: 3; break-inside: avoid; page-break-inside: avoid; }
 ` : "";
 
 const balanceCss = autoPageBalancing === "true" ? `
@@ -97,6 +97,14 @@ body {
   color: #111;
 }
 
+.sermonprint-export h1,
+.sermonprint-export h2,
+.sermonprint-export h3,
+.sermonprint-export h4 {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
 .sermonprint-export h1 {
   text-align: center;
   font-size: 18pt;
@@ -126,6 +134,8 @@ body {
   margin: 0 0 .20in 0;
   orphans: 3;
   widows: 3;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .sermonprint-export br {
@@ -148,6 +158,14 @@ body {
 
 .sermonprint-export li {
   margin-bottom: .10in;
+}
+
+.sermonprint-export blockquote,
+.sermonprint-export ul,
+.sermonprint-export ol,
+.sermonprint-export li {
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .sermonprint-export blockquote {

@@ -2,6 +2,8 @@ import { ItemView, MarkdownRenderer, Notice, TFile, WorkspaceLeaf } from "obsidi
 import SermonPrintPlugin from "./main";
 import { applyLayoutVariables, pageSizeForPreset, parseInches, parsePoints } from "./layout/engine";
 import { calculateVisualPages } from "./layout/paginator";
+import { paginateBlocks, clearBlockPagination } from "./layout/blockPaginator";
+import { paginateDom } from "./layout/domPaginator";
 
 export const VIEW_TYPE_SERMONPRINT_MANUSCRIPT = "sermonprint-manuscript-view";
 
@@ -67,6 +69,7 @@ function htmlToMarkdown(root: HTMLElement): string {
   }
 
   function walkBlock(el: Element): void {
+    if ((el as HTMLElement).classList?.contains("sermonprint-page-spacer")) return;
     const tag = el.tagName.toLowerCase();
     const htmlEl = el as HTMLElement;
     const text = textOf(htmlEl).trim();
@@ -291,15 +294,12 @@ export class SermonPrintManuscriptView extends ItemView {
     this.applyManuscriptVariables();
     this.guidesEl.empty();
 
-    const layout = applyLayoutVariables(this.containerEl.querySelector(".sermonprint-manuscript-shell") as HTMLElement, this.plugin.settings);
-    const pages = calculateVisualPages(this.editorEl.scrollHeight, layout);
+    const shell = this.containerEl.querySelector(".sermonprint-manuscript-shell") as HTMLElement;
+    const layout = applyLayoutVariables(shell, this.plugin.settings);
 
-    pages.slice(1).forEach((page) => {
-      const marker = this.guidesEl!.createDiv({ cls: "sermonprint-page-break-marker" });
-      marker.style.top = `${page.topPx}px`;
-      marker.createSpan({ text: `Page ${page.pageNumber}` });
-    });
+    const pages = paginateBlocks(this.editorEl, layout);
 
-    this.pageCountEl.setText(`Page 1 of ${pages.length}`);
+    this.pageCountEl.setText(`Page 1 of ${pages}`);
+  }
   }
 }

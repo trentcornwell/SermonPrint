@@ -521,3 +521,87 @@ body .sermonprint-manuscript-editor blockquote {
 export function removeLayoutStyles(): void {
   document.getElementById(STYLE_ID)?.remove();
 }
+
+
+body .sermonprint-page-frame {
+  position: absolute;
+  left: 0;
+  width: var(--sp-page-width);
+  height: var(--sp-page-height);
+  background: #fff;
+  box-shadow: 0 0 18px rgba(0,0,0,.18);
+  border-radius: 2px;
+  z-index: 0;
+  pointer-events: none;
+}
+
+body .sermonprint-page-frame span {
+  position: absolute;
+  right: -0.54in;
+  top: 0.16in;
+  background: #f7f7f7;
+  color: #555;
+  border: 1px solid rgba(0,0,0,.15);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* SermonPrint block pagination */
+body .sermonprint-manuscript-editor .sermonprint-page-spacer {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  margin: 0 calc(var(--sp-page-margin) * -1);
+  background: #d7d7d7;
+  border-top: 1px solid rgba(139, 0, 0, .35);
+  border-bottom: 1px solid rgba(139, 0, 0, .15);
+  pointer-events: none;
+  user-select: none;
+}
+
+body .sermonprint-manuscript-editor .sermonprint-page-spacer::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -18px;
+  height: 36px;
+  background: linear-gradient(to bottom, rgba(215,215,215,0), rgba(215,215,215,.96), rgba(215,215,215,0));
+}
+
+body .sermonprint-manuscript-editor .sermonprint-page-spacer .sermonprint-page-gap-label {
+  position: absolute;
+  right: -0.55in;
+  top: -14px;
+  background: #f7f7f7;
+  color: #8b0000;
+  border: 1px solid rgba(139,0,0,.25);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+body .sermonprint-manuscript-editor h1,
+body .sermonprint-manuscript-editor h2,
+body .sermonprint-manuscript-editor h3,
+body .sermonprint-manuscript-editor h4,
+body .sermonprint-manuscript-editor p,
+body .sermonprint-manuscript-editor blockquote,
+body .sermonprint-manuscript-editor ul,
+body .sermonprint-manuscript-editor ol {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+body .sermonprint-manuscript-editor h1,
+body .sermonprint-manuscript-editor h2,
+body .sermonprint-manuscript-editor h3,
+body .sermonprint-manuscript-editor h4 {
+  break-after: avoid;
+  page-break-after: avoid;
+}
