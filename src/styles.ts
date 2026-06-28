@@ -1,15 +1,14 @@
 import { SermonPrintSettings } from "./settings";
+import { parseInches, parsePositiveInches } from "./engine/Layout";
 
 const STYLE_ID = "sermonprint-layout-styles";
 
 function numberFromInches(value: string): number {
-  const parsed = Number(String(value).replace("in", "").trim());
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  return parsePositiveInches(value, 1);
 }
 
 function numberFromAnyInch(value: string): number {
-  const parsed = Number(String(value).replace("in", "").trim());
-  return Number.isFinite(parsed) ? parsed : 0;
+  return parseInches(value, 0);
 }
 
 export function getPageMetrics(settings: SermonPrintSettings): {

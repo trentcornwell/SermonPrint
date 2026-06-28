@@ -1,5 +1,6 @@
 import { ItemView, MarkdownRenderer, Notice, TFile, WorkspaceLeaf } from "obsidian";
 import SermonPrintPlugin from "./main";
+import { getPagePreset, INCH_TO_PX, parsePositiveInches, parsePositivePoints } from "./engine/Layout";
 
 export const VIEW_TYPE_SERMONPRINT_MANUSCRIPT = "sermonprint-manuscript-view";
 
@@ -89,16 +90,6 @@ function htmlToMarkdown(root: HTMLElement): string {
 
   Array.from(root.children).forEach(walkBlock);
   return blocks.join("\n\n") + "\n";
-}
-
-function inches(value: string, fallback: number): number {
-  const parsed = Number(String(value).replace("in", "").trim());
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function pt(value: string, fallback: number): number {
-  const parsed = Number(String(value).replace("pt", "").trim());
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 export class SermonPrintManuscriptView extends ItemView {
@@ -206,18 +197,10 @@ export class SermonPrintManuscriptView extends ItemView {
 
   private async setPageSize(value: "half-sheet" | "letter" | "a4" | "legal" | "custom"): Promise<void> {
     this.plugin.settings.pageSizePreset = value;
-    if (value === "half-sheet") {
-      this.plugin.settings.pageWidth = "5.5in";
-      this.plugin.settings.pageHeight = "8.5in";
-    } else if (value === "letter") {
-      this.plugin.settings.pageWidth = "8.5in";
-      this.plugin.settings.pageHeight = "11in";
-    } else if (value === "legal") {
-      this.plugin.settings.pageWidth = "8.5in";
-      this.plugin.settings.pageHeight = "14in";
-    } else if (value === "a4") {
-      this.plugin.settings.pageWidth = "8.27in";
-      this.plugin.settings.pageHeight = "11.69in";
+    const preset = getPagePreset(value);
+    if (preset) {
+      this.plugin.settings.pageWidth = preset.width;
+      this.plugin.settings.pageHeight = preset.height;
     }
     await this.plugin.saveSettings();
   }
@@ -293,10 +276,10 @@ export class SermonPrintManuscriptView extends ItemView {
     const shell = this.containerEl.querySelector(".sermonprint-manuscript-shell") as HTMLElement | null;
     if (!shell) return;
 
-    const pageWidth = inches(this.plugin.settings.pageWidth, 5.5);
-    const pageHeight = inches(this.plugin.settings.pageHeight, 8.5);
-    const margin = inches(this.plugin.settings.margin, 0.58);
-    const fontSize = pt(this.plugin.settings.fontSize, 12.5);
+    const pageWidth = parsePositiveInches(this.plugin.settings.pageWidth, 5.5);
+    const pageHeight = parsePositiveInches(this.plugin.settings.pageHeight, 8.5);
+    const margin = parsePositiveInches(this.plugin.settings.margin, 0.58);
+    const fontSize = parsePositivePoints(this.plugin.settings.fontSize, 12.5);
     const lineHeight = Number(this.plugin.settings.lineHeight) || 1.65;
     const printableHeight = Math.max(1, pageHeight - margin * 2);
 
@@ -321,7 +304,7 @@ export class SermonPrintManuscriptView extends ItemView {
     this.applyManuscriptVariables();
     this.guidesEl.empty();
 
-    const pageHeightPx = inches(this.plugin.settings.pageHeight, 8.5) * 96;
+    const pageHeightPx = parsePositiveInches(this.plugin.settings.pageHeight, 8.5) * INCH_TO_PX;
     const totalHeight = Math.max(pageHeightPx, this.editorEl.scrollHeight + 24);
     const pages = Math.max(1, Math.ceil(totalHeight / pageHeightPx));
 

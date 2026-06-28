@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import SermonPrintPlugin from "./main";
+import { getPagePreset } from "./engine/Layout";
 
 export interface SermonPrintSettings {
   pageSizePreset: "half-sheet" | "letter" | "a4" | "legal" | "custom";
@@ -109,18 +110,10 @@ export class SermonPrintSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.pageSizePreset = value as SermonPrintSettings["pageSizePreset"];
 
-            if (value === "half-sheet") {
-              this.plugin.settings.pageWidth = "5.5in";
-              this.plugin.settings.pageHeight = "8.5in";
-            } else if (value === "letter") {
-              this.plugin.settings.pageWidth = "8.5in";
-              this.plugin.settings.pageHeight = "11in";
-            } else if (value === "legal") {
-              this.plugin.settings.pageWidth = "8.5in";
-              this.plugin.settings.pageHeight = "14in";
-            } else if (value === "a4") {
-              this.plugin.settings.pageWidth = "8.27in";
-              this.plugin.settings.pageHeight = "11.69in";
+            const preset = getPagePreset(value as SermonPrintSettings["pageSizePreset"]);
+            if (preset) {
+              this.plugin.settings.pageWidth = preset.width;
+              this.plugin.settings.pageHeight = preset.height;
             }
 
             await this.plugin.saveSettings();
@@ -133,9 +126,10 @@ export class SermonPrintSettingTab extends PluginSettingTab {
       .setDesc("Sets the layout and exporter to 5.5 × 8.5 immediately.")
       .addButton((button) =>
         button.setButtonText("Set 5.5 × 8.5").onClick(async () => {
+          const preset = getPagePreset("half-sheet")!;
           this.plugin.settings.pageSizePreset = "half-sheet";
-          this.plugin.settings.pageWidth = "5.5in";
-          this.plugin.settings.pageHeight = "8.5in";
+          this.plugin.settings.pageWidth = preset.width;
+          this.plugin.settings.pageHeight = preset.height;
           await this.plugin.saveSettings();
           this.display();
         })

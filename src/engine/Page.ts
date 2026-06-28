@@ -1,4 +1,5 @@
 import { SermonBlock } from "./Block";
+import { inchesToPx } from "./Layout";
 
 export interface PageSettings {
   widthIn: number;
@@ -30,10 +31,6 @@ export const DEFAULT_PAGE_SETTINGS: PageSettings = {
   lineHeight: 1.45,
   paragraphSpacingPt: 8,
 };
-
-export function inchesToPx(value: number): number {
-  return value * 96;
-}
 
 export function printableHeightPx(settings: PageSettings): number {
   return inchesToPx(settings.heightIn - settings.marginTopIn - settings.marginBottomIn);
