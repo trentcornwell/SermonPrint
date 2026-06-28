@@ -1,6 +1,6 @@
 {
   "name": "sermonprint",
-  "version": "2.3.0",
+  "version": "0.5.0",
   "description": "An Obsidian plugin for writing and exporting half-sheet sermon manuscripts and booklets.",
   "main": "main.js",
   "scripts": {

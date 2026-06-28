@@ -1,5 +1,7 @@
 import { ItemView, MarkdownRenderer, Notice, TFile, WorkspaceLeaf } from "obsidian";
 import SermonPrintPlugin from "./main";
+import { applyLayoutVariables, pageSizeForPreset, parseInches, parsePoints } from "./layout/engine";
+import { calculateVisualPages } from "./layout/paginator";
 
 export const VIEW_TYPE_SERMONPRINT_MANUSCRIPT = "sermonprint-manuscript-view";
 
@@ -89,16 +91,6 @@ function htmlToMarkdown(root: HTMLElement): string {
 
   Array.from(root.children).forEach(walkBlock);
   return blocks.join("\n\n") + "\n";
-}
-
-function inches(value: string, fallback: number): number {
-  const parsed = Number(String(value).replace("in", "").trim());
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function pt(value: string, fallback: number): number {
-  const parsed = Number(String(value).replace("pt", "").trim());
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 export class SermonPrintManuscriptView extends ItemView {
@@ -207,17 +199,9 @@ export class SermonPrintManuscriptView extends ItemView {
   private async setPageSize(value: "half-sheet" | "letter" | "a4" | "legal" | "custom"): Promise<void> {
     this.plugin.settings.pageSizePreset = value;
     if (value === "half-sheet") {
-      this.plugin.settings.pageWidth = "5.5in";
-      this.plugin.settings.pageHeight = "8.5in";
-    } else if (value === "letter") {
-      this.plugin.settings.pageWidth = "8.5in";
-      this.plugin.settings.pageHeight = "11in";
-    } else if (value === "legal") {
-      this.plugin.settings.pageWidth = "8.5in";
-      this.plugin.settings.pageHeight = "14in";
-    } else if (value === "a4") {
-      this.plugin.settings.pageWidth = "8.27in";
-      this.plugin.settings.pageHeight = "11.69in";
+      const size = pageSizeForPreset(value);
+      this.plugin.settings.pageWidth = size.width;
+      this.plugin.settings.pageHeight = size.height;
     }
     await this.plugin.saveSettings();
   }
@@ -293,21 +277,7 @@ export class SermonPrintManuscriptView extends ItemView {
     const shell = this.containerEl.querySelector(".sermonprint-manuscript-shell") as HTMLElement | null;
     if (!shell) return;
 
-    const pageWidth = inches(this.plugin.settings.pageWidth, 5.5);
-    const pageHeight = inches(this.plugin.settings.pageHeight, 8.5);
-    const margin = inches(this.plugin.settings.margin, 0.58);
-    const fontSize = pt(this.plugin.settings.fontSize, 12.5);
-    const lineHeight = Number(this.plugin.settings.lineHeight) || 1.65;
-    const printableHeight = Math.max(1, pageHeight - margin * 2);
-
-    shell.style.setProperty("--sp-page-width", `${pageWidth}in`);
-    shell.style.setProperty("--sp-page-height", `${pageHeight}in`);
-    shell.style.setProperty("--sp-page-margin", `${margin}in`);
-    shell.style.setProperty("--sp-printable-height", `${printableHeight}in`);
-    shell.style.setProperty("--sp-font-family", `${this.plugin.settings.fontFamily}, Georgia, serif`);
-    shell.style.setProperty("--sp-font-size", `${fontSize}pt`);
-    shell.style.setProperty("--sp-line-height", String(lineHeight));
-    shell.style.setProperty("--sp-verse-color", this.plugin.settings.bibleVerseColor || "#8b0000");
+    applyLayoutVariables(shell, this.plugin.settings);
   }
 
   private scheduleGuideUpdate(): void {
@@ -321,16 +291,15 @@ export class SermonPrintManuscriptView extends ItemView {
     this.applyManuscriptVariables();
     this.guidesEl.empty();
 
-    const pageHeightPx = inches(this.plugin.settings.pageHeight, 8.5) * 96;
-    const totalHeight = Math.max(pageHeightPx, this.editorEl.scrollHeight + 24);
-    const pages = Math.max(1, Math.ceil(totalHeight / pageHeightPx));
+    const layout = applyLayoutVariables(this.containerEl.querySelector(".sermonprint-manuscript-shell") as HTMLElement, this.plugin.settings);
+    const pages = calculateVisualPages(this.editorEl.scrollHeight, layout);
 
-    for (let i = 1; i <= pages; i++) {
-      const marker = this.guidesEl.createDiv({ cls: "sermonprint-page-break-marker" });
-      marker.style.top = `${i * pageHeightPx}px`;
-      marker.createSpan({ text: `Page ${i + 1}` });
-    }
+    pages.slice(1).forEach((page) => {
+      const marker = this.guidesEl!.createDiv({ cls: "sermonprint-page-break-marker" });
+      marker.style.top = `${page.topPx}px`;
+      marker.createSpan({ text: `Page ${page.pageNumber}` });
+    });
 
-    this.pageCountEl.setText(`Page 1 of ${pages}`);
+    this.pageCountEl.setText(`Page 1 of ${pages.length}`);
   }
 }

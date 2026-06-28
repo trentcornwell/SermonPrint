@@ -875,6 +875,77 @@ var SermonPrintExporter = class {
 
 // src/manuscriptView.ts
 var import_obsidian3 = require("obsidian");
+
+// src/layout/engine.ts
+function parseInches(value, fallback) {
+  const parsed = typeof value === "number" ? value : Number(String(value != null ? value : "").replace("in", "").trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+function parsePoints(value, fallback) {
+  const parsed = typeof value === "number" ? value : Number(String(value != null ? value : "").replace("pt", "").trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+function resolveLayout(settings) {
+  const pageWidthIn = parseInches(settings.pageWidth, 5.5);
+  const pageHeightIn = parseInches(settings.pageHeight, 8.5);
+  const marginIn = parseInches(settings.margin, 0.58);
+  const fontSizePt = parsePoints(settings.fontSize, 12.5);
+  const lineHeight = Number(settings.lineHeight) || 1.65;
+  return {
+    preset: settings.pageSizePreset || "half-sheet",
+    pageWidthIn,
+    pageHeightIn,
+    marginIn,
+    printableWidthIn: Math.max(1, pageWidthIn - marginIn * 2),
+    printableHeightIn: Math.max(1, pageHeightIn - marginIn * 2),
+    fontFamily: settings.fontFamily || "Georgia",
+    fontSizePt,
+    lineHeight,
+    paragraphSpacingIn: 0.2,
+    h1AfterIn: 0.22,
+    h2BeforeIn: 0.34,
+    h2AfterIn: 0.16,
+    h3BeforeIn: 0.28,
+    h3AfterIn: 0.13,
+    blockSpacingIn: 0.22,
+    listSpacingIn: 0.18,
+    verseColor: settings.bibleVerseColor || "#8b0000"
+  };
+}
+function applyLayoutVariables(target, settings) {
+  const layout = resolveLayout(settings);
+  target.style.setProperty("--sp-page-width", `${layout.pageWidthIn}in`);
+  target.style.setProperty("--sp-page-height", `${layout.pageHeightIn}in`);
+  target.style.setProperty("--sp-page-margin", `${layout.marginIn}in`);
+  target.style.setProperty("--sp-printable-width", `${layout.printableWidthIn}in`);
+  target.style.setProperty("--sp-printable-height", `${layout.printableHeightIn}in`);
+  target.style.setProperty("--sp-font-family", `${layout.fontFamily}, Georgia, serif`);
+  target.style.setProperty("--sp-font-size", `${layout.fontSizePt}pt`);
+  target.style.setProperty("--sp-line-height", String(layout.lineHeight));
+  target.style.setProperty("--sp-paragraph-space", `${layout.paragraphSpacingIn}in`);
+  target.style.setProperty("--sp-verse-color", layout.verseColor);
+  return layout;
+}
+function pageSizeForPreset(preset) {
+  if (preset === "letter") return { width: "8.5in", height: "11in" };
+  if (preset === "legal") return { width: "8.5in", height: "14in" };
+  if (preset === "a4") return { width: "8.27in", height: "11.69in" };
+  return { width: "5.5in", height: "8.5in" };
+}
+
+// src/layout/paginator.ts
+var PX_PER_INCH = 96;
+function calculateVisualPages(contentHeightPx, layout) {
+  const pageHeightPx = layout.pageHeightIn * PX_PER_INCH;
+  const pages = Math.max(1, Math.ceil(Math.max(pageHeightPx, contentHeightPx + 24) / pageHeightPx));
+  return Array.from({ length: pages }, (_, index) => ({
+    pageNumber: index + 1,
+    topPx: index * pageHeightPx,
+    heightPx: pageHeightPx
+  }));
+}
+
+// src/manuscriptView.ts
 var VIEW_TYPE_SERMONPRINT_MANUSCRIPT = "sermonprint-manuscript-view";
 var STRUCTURE_INSERTS = [
   { label: "Big Idea", markdown: "> **Big Idea:** " },
@@ -946,14 +1017,6 @@ function htmlToMarkdown(root) {
   }
   Array.from(root.children).forEach(walkBlock);
   return blocks.join("\n\n") + "\n";
-}
-function inches(value, fallback) {
-  const parsed = Number(String(value).replace("in", "").trim());
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-function pt(value, fallback) {
-  const parsed = Number(String(value).replace("pt", "").trim());
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
   constructor(leaf, plugin) {
@@ -1043,17 +1106,9 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
   async setPageSize(value) {
     this.plugin.settings.pageSizePreset = value;
     if (value === "half-sheet") {
-      this.plugin.settings.pageWidth = "5.5in";
-      this.plugin.settings.pageHeight = "8.5in";
-    } else if (value === "letter") {
-      this.plugin.settings.pageWidth = "8.5in";
-      this.plugin.settings.pageHeight = "11in";
-    } else if (value === "legal") {
-      this.plugin.settings.pageWidth = "8.5in";
-      this.plugin.settings.pageHeight = "14in";
-    } else if (value === "a4") {
-      this.plugin.settings.pageWidth = "8.27in";
-      this.plugin.settings.pageHeight = "11.69in";
+      const size = pageSizeForPreset(value);
+      this.plugin.settings.pageWidth = size.width;
+      this.plugin.settings.pageHeight = size.height;
     }
     await this.plugin.saveSettings();
   }
@@ -1122,20 +1177,7 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
   applyManuscriptVariables() {
     const shell = this.containerEl.querySelector(".sermonprint-manuscript-shell");
     if (!shell) return;
-    const pageWidth = inches(this.plugin.settings.pageWidth, 5.5);
-    const pageHeight = inches(this.plugin.settings.pageHeight, 8.5);
-    const margin = inches(this.plugin.settings.margin, 0.58);
-    const fontSize = pt(this.plugin.settings.fontSize, 12.5);
-    const lineHeight = Number(this.plugin.settings.lineHeight) || 1.65;
-    const printableHeight = Math.max(1, pageHeight - margin * 2);
-    shell.style.setProperty("--sp-page-width", `${pageWidth}in`);
-    shell.style.setProperty("--sp-page-height", `${pageHeight}in`);
-    shell.style.setProperty("--sp-page-margin", `${margin}in`);
-    shell.style.setProperty("--sp-printable-height", `${printableHeight}in`);
-    shell.style.setProperty("--sp-font-family", `${this.plugin.settings.fontFamily}, Georgia, serif`);
-    shell.style.setProperty("--sp-font-size", `${fontSize}pt`);
-    shell.style.setProperty("--sp-line-height", String(lineHeight));
-    shell.style.setProperty("--sp-verse-color", this.plugin.settings.bibleVerseColor || "#8b0000");
+    applyLayoutVariables(shell, this.plugin.settings);
   }
   scheduleGuideUpdate() {
     if (this.updateTimer) window.clearTimeout(this.updateTimer);
@@ -1145,15 +1187,14 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
     if (!this.editorEl || !this.guidesEl || !this.pageCountEl) return;
     this.applyManuscriptVariables();
     this.guidesEl.empty();
-    const pageHeightPx = inches(this.plugin.settings.pageHeight, 8.5) * 96;
-    const totalHeight = Math.max(pageHeightPx, this.editorEl.scrollHeight + 24);
-    const pages = Math.max(1, Math.ceil(totalHeight / pageHeightPx));
-    for (let i = 1; i <= pages; i++) {
+    const layout = applyLayoutVariables(this.containerEl.querySelector(".sermonprint-manuscript-shell"), this.plugin.settings);
+    const pages = calculateVisualPages(this.editorEl.scrollHeight, layout);
+    pages.slice(1).forEach((page) => {
       const marker = this.guidesEl.createDiv({ cls: "sermonprint-page-break-marker" });
-      marker.style.top = `${i * pageHeightPx}px`;
-      marker.createSpan({ text: `Page ${i + 1}` });
-    }
-    this.pageCountEl.setText(`Page 1 of ${pages}`);
+      marker.style.top = `${page.topPx}px`;
+      marker.createSpan({ text: `Page ${page.pageNumber}` });
+    });
+    this.pageCountEl.setText(`Page 1 of ${pages.length}`);
   }
 };
 
