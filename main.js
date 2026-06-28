@@ -36,6 +36,48 @@ var import_obsidian5 = require("obsidian");
 
 // src/settings.ts
 var import_obsidian = require("obsidian");
+
+// src/engine/Layout.ts
+var INCH_TO_PX = 96;
+var PAGE_PRESETS = {
+  "half-sheet": {
+    width: "5.5in",
+    height: "8.5in"
+  },
+  letter: {
+    width: "8.5in",
+    height: "11in"
+  },
+  legal: {
+    width: "8.5in",
+    height: "14in"
+  },
+  a4: {
+    width: "8.27in",
+    height: "11.69in"
+  }
+};
+function getPagePreset(value) {
+  if (value === "custom") return null;
+  return PAGE_PRESETS[value];
+}
+function parsePositiveInches(value, fallback) {
+  const parsed = Number(String(value).replace("in", "").trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+function parseInches(value, fallback) {
+  const parsed = Number(String(value).replace("in", "").trim());
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+function parsePositivePoints(value, fallback) {
+  const parsed = Number(String(value).replace("pt", "").trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+function inchesToPx(value) {
+  return value * INCH_TO_PX;
+}
+
+// src/settings.ts
 var DEFAULT_SETTINGS = {
   pageSizePreset: "half-sheet",
   pdfFolder: "Sermon PDFs",
@@ -98,18 +140,10 @@ var SermonPrintSettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(this.containerEl).setName("Page size").setDesc("This controls both the red page guides and the exported PDF. Your preferred default is Half-sheet, 5.5 \xD7 8.5.").addDropdown(
       (dropdown) => dropdown.addOption("half-sheet", "Half-sheet sermon page (5.5 \xD7 8.5)").addOption("letter", "US Letter (8.5 \xD7 11)").addOption("legal", "US Legal (8.5 \xD7 14)").addOption("a4", "A4 (8.27 \xD7 11.69)").addOption("custom", "Custom").setValue(this.plugin.settings.pageSizePreset || "half-sheet").onChange(async (value) => {
         this.plugin.settings.pageSizePreset = value;
-        if (value === "half-sheet") {
-          this.plugin.settings.pageWidth = "5.5in";
-          this.plugin.settings.pageHeight = "8.5in";
-        } else if (value === "letter") {
-          this.plugin.settings.pageWidth = "8.5in";
-          this.plugin.settings.pageHeight = "11in";
-        } else if (value === "legal") {
-          this.plugin.settings.pageWidth = "8.5in";
-          this.plugin.settings.pageHeight = "14in";
-        } else if (value === "a4") {
-          this.plugin.settings.pageWidth = "8.27in";
-          this.plugin.settings.pageHeight = "11.69in";
+        const preset = getPagePreset(value);
+        if (preset) {
+          this.plugin.settings.pageWidth = preset.width;
+          this.plugin.settings.pageHeight = preset.height;
         }
         await this.plugin.saveSettings();
         this.display();
@@ -117,9 +151,10 @@ var SermonPrintSettingTab = class extends import_obsidian.PluginSettingTab {
     );
     new import_obsidian.Setting(this.containerEl).setName("Use half-sheet sermon page").setDesc("Sets the layout and exporter to 5.5 \xD7 8.5 immediately.").addButton(
       (button) => button.setButtonText("Set 5.5 \xD7 8.5").onClick(async () => {
+        const preset = getPagePreset("half-sheet");
         this.plugin.settings.pageSizePreset = "half-sheet";
-        this.plugin.settings.pageWidth = "5.5in";
-        this.plugin.settings.pageHeight = "8.5in";
+        this.plugin.settings.pageWidth = preset.width;
+        this.plugin.settings.pageHeight = preset.height;
         await this.plugin.saveSettings();
         this.display();
       })
@@ -150,12 +185,10 @@ var SermonPrintSettingTab = class extends import_obsidian.PluginSettingTab {
 // src/styles.ts
 var STYLE_ID = "sermonprint-layout-styles";
 function numberFromInches(value) {
-  const parsed = Number(String(value).replace("in", "").trim());
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  return parsePositiveInches(value, 1);
 }
 function numberFromAnyInch(value) {
-  const parsed = Number(String(value).replace("in", "").trim());
-  return Number.isFinite(parsed) ? parsed : 0;
+  return parseInches(value, 0);
 }
 function getPageMetrics(settings) {
   const pageHeight = numberFromInches(settings.pageHeight);
@@ -1042,14 +1075,6 @@ function htmlToMarkdown(root) {
   Array.from(root.children).forEach(walkBlock);
   return blocks.join("\n\n") + "\n";
 }
-function inches(value, fallback) {
-  const parsed = Number(String(value).replace("in", "").trim());
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-function pt(value, fallback) {
-  const parsed = Number(String(value).replace("pt", "").trim());
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -1137,18 +1162,10 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
   }
   async setPageSize(value) {
     this.plugin.settings.pageSizePreset = value;
-    if (value === "half-sheet") {
-      this.plugin.settings.pageWidth = "5.5in";
-      this.plugin.settings.pageHeight = "8.5in";
-    } else if (value === "letter") {
-      this.plugin.settings.pageWidth = "8.5in";
-      this.plugin.settings.pageHeight = "11in";
-    } else if (value === "legal") {
-      this.plugin.settings.pageWidth = "8.5in";
-      this.plugin.settings.pageHeight = "14in";
-    } else if (value === "a4") {
-      this.plugin.settings.pageWidth = "8.27in";
-      this.plugin.settings.pageHeight = "11.69in";
+    const preset = getPagePreset(value);
+    if (preset) {
+      this.plugin.settings.pageWidth = preset.width;
+      this.plugin.settings.pageHeight = preset.height;
     }
     await this.plugin.saveSettings();
   }
@@ -1217,10 +1234,10 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
   applyManuscriptVariables() {
     const shell = this.containerEl.querySelector(".sermonprint-manuscript-shell");
     if (!shell) return;
-    const pageWidth = inches(this.plugin.settings.pageWidth, 5.5);
-    const pageHeight = inches(this.plugin.settings.pageHeight, 8.5);
-    const margin = inches(this.plugin.settings.margin, 0.58);
-    const fontSize = pt(this.plugin.settings.fontSize, 12.5);
+    const pageWidth = parsePositiveInches(this.plugin.settings.pageWidth, 5.5);
+    const pageHeight = parsePositiveInches(this.plugin.settings.pageHeight, 8.5);
+    const margin = parsePositiveInches(this.plugin.settings.margin, 0.58);
+    const fontSize = parsePositivePoints(this.plugin.settings.fontSize, 12.5);
     const lineHeight = Number(this.plugin.settings.lineHeight) || 1.65;
     const printableHeight = Math.max(1, pageHeight - margin * 2);
     shell.style.setProperty("--sp-page-width", `${pageWidth}in`);
@@ -1240,7 +1257,7 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
     if (!this.editorEl || !this.guidesEl || !this.pageCountEl) return;
     this.applyManuscriptVariables();
     this.guidesEl.empty();
-    const pageHeightPx = inches(this.plugin.settings.pageHeight, 8.5) * 96;
+    const pageHeightPx = parsePositiveInches(this.plugin.settings.pageHeight, 8.5) * INCH_TO_PX;
     const totalHeight = Math.max(pageHeightPx, this.editorEl.scrollHeight + 24);
     const pages = Math.max(1, Math.ceil(totalHeight / pageHeightPx));
     for (let i = 1; i <= pages; i++) {
@@ -1304,54 +1321,52 @@ var DEFAULT_PAGE_SETTINGS = {
   lineHeight: 1.45,
   paragraphSpacingPt: 8
 };
-function inchesToPx(value) {
-  return value * 96;
-}
 function printableHeightPx(settings) {
   return inchesToPx(settings.heightIn - settings.marginTopIn - settings.marginBottomIn);
 }
 
-// src/engine/Paginator.ts
+// src/engine/Measure.ts
+function stripMarkdown(text) {
+  return text.replace(/^#{1,6}\s+/, "").replace(/^>\s?/, "").replace(/\*\*/g, "").trim();
+}
 function estimateBlockHeight(block, settings) {
-  const charsPerLine = 54;
-  const text = block.text.replace(/[#>*_`-]/g, "").trim();
-  const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
+  const text = stripMarkdown(block.text);
+  const printableWidthIn = settings.widthIn - settings.marginLeftIn - settings.marginRightIn;
   const fontPx = settings.fontSizePt * 1.333;
   const linePx = fontPx * settings.lineHeight;
+  const charsPerLine = Math.max(28, Math.floor(printableWidthIn * 12.5));
+  const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
   const spacingPx = settings.paragraphSpacingPt * 1.333;
-  let multiplier = 1;
-  if (block.type === "title") multiplier = 1.8;
-  if (block.type === "heading") multiplier = 1.5;
-  if (block.type === "mainPoint") multiplier = 1.6;
-  if (block.type === "scripture" || block.type === "quote") multiplier = 1.15;
-  return lines * linePx * multiplier + spacingPx;
+  switch (block.type) {
+    case "title":
+      return linePx * 2.3 + spacingPx * 1.5;
+    case "heading":
+    case "mainPoint":
+      return linePx * 1.9 + spacingPx * 1.4;
+    case "scripture":
+    case "quote":
+      return lines * linePx * 1.08 + spacingPx * 1.5;
+    default:
+      return lines * linePx + spacingPx;
+  }
 }
+
+// src/engine/Paginator.ts
 function keepWithNext(block) {
-  return block.type === "heading" || block.type === "mainPoint" || block.type === "title";
+  return block.type === "title" || block.type === "heading" || block.type === "mainPoint";
+}
+function newPage(number, availableHeightPx) {
+  return {
+    number,
+    blocks: [],
+    usedHeightPx: 0,
+    availableHeightPx
+  };
 }
 function paginateDocument(document2, settings) {
   const availableHeight = printableHeightPx(settings);
-  const pages = [
-    {
-      number: 1,
-      blocks: [],
-      usedHeightPx: 0,
-      availableHeightPx: availableHeight
-    }
-  ];
-  function currentPage() {
-    return pages[pages.length - 1];
-  }
-  function newPage() {
-    const page = {
-      number: pages.length + 1,
-      blocks: [],
-      usedHeightPx: 0,
-      availableHeightPx: availableHeight
-    };
-    pages.push(page);
-    return page;
-  }
+  const pages = [newPage(1, availableHeight)];
+  let current = pages[0];
   for (let index = 0; index < document2.blocks.length; index++) {
     const block = document2.blocks[index];
     const blockHeight = estimateBlockHeight(block, settings);
@@ -1360,21 +1375,23 @@ function paginateDocument(document2, settings) {
     if (keepWithNext(block) && next) {
       heightToFit += estimateBlockHeight(next, settings);
     }
-    if (currentPage().blocks.length > 0 && currentPage().usedHeightPx + heightToFit > availableHeight) {
-      newPage();
+    const doesNotFit = current.blocks.length > 0 && current.usedHeightPx + heightToFit > availableHeight;
+    if (doesNotFit) {
+      current = newPage(pages.length + 1, availableHeight);
+      pages.push(current);
     }
-    currentPage().blocks.push(block);
-    currentPage().usedHeightPx += blockHeight;
+    current.blocks.push(block);
+    current.usedHeightPx += blockHeight;
   }
   return pages;
 }
 
 // src/renderer/BlockRenderer.ts
-function stripMarkdown(text) {
+function stripMarkdown2(text) {
   return text.replace(/^#{1,6}\s+/, "").replace(/^>\s?/, "").replace(/\*\*/g, "").trim();
 }
 function blockToHtml(block) {
-  const text = stripMarkdown(block.text);
+  const text = stripMarkdown2(block.text);
   switch (block.type) {
     case "title":
       return `<h1>${text}</h1>`;
@@ -1402,11 +1419,11 @@ function blockToHtml(block) {
 // src/renderer/PageRenderer.ts
 function renderPagesToHtml(pages, settings) {
   return pages.map((page) => {
-    const blocks = page.blocks.map(blockToHtml).join("\\n");
+    const blocks = page.blocks.map(blockToHtml).join("\n");
     return `
 <section class="sp-page" data-page="${page.number}" style="
   width: ${settings.widthIn}in;
-  min-height: ${settings.heightIn}in;
+  height: ${settings.heightIn}in;
   padding: ${settings.marginTopIn}in ${settings.marginRightIn}in ${settings.marginBottomIn}in ${settings.marginLeftIn}in;
 ">
   <div class="sp-page-number">Page ${page.number}</div>
