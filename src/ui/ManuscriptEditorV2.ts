@@ -3,7 +3,9 @@ import SermonPrintPlugin from "../main";
 import { parseMarkdownToDocument } from "../engine/Parser";
 import { paginateDocument } from "../engine/Paginator";
 import { DEFAULT_PAGE_SETTINGS } from "../engine/Page";
+import { DomMeasureService } from "../engine/DomMeasure";
 import { renderPagesToHtml } from "../renderer/PageRenderer";
+import { blockToHtml } from "../renderer/BlockRenderer";
 
 export const SERMONPRINT_V2_VIEW_TYPE = "sermonprint-manuscript-engine-v2";
 
@@ -11,6 +13,7 @@ export class ManuscriptEditorV2View extends ItemView {
   plugin: SermonPrintPlugin;
   file: TFile | null = null;
   rootEl: HTMLElement | null = null;
+  measureService: DomMeasureService | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: SermonPrintPlugin) {
     super(leaf);
@@ -28,6 +31,7 @@ export class ManuscriptEditorV2View extends ItemView {
   async onOpen(): Promise<void> {
     this.containerEl.empty();
     this.rootEl = this.containerEl.createDiv({ cls: "sp-v2-root" });
+    this.measureService = new DomMeasureService(this.rootEl, blockToHtml);
 
     const toolbar = this.rootEl.createDiv({ cls: "sp-v2-toolbar" });
     toolbar.createEl("button", { text: "Refresh Pages" }).onclick = () => this.renderCurrentFile();
@@ -36,6 +40,12 @@ export class ManuscriptEditorV2View extends ItemView {
     this.rootEl.createDiv({ cls: "sp-v2-pages" });
 
     await this.renderCurrentFile();
+  }
+
+  onClose(): Promise<void> {
+    this.measureService?.destroy();
+    this.measureService = null;
+    return Promise.resolve();
   }
 
   async setFile(file: TFile): Promise<void> {
@@ -58,7 +68,10 @@ export class ManuscriptEditorV2View extends ItemView {
     this.file = file;
     const markdown = await this.app.vault.read(file);
     const document = parseMarkdownToDocument(markdown, file.basename);
-    const pages = paginateDocument(document, DEFAULT_PAGE_SETTINGS);
+    this.measureService?.clear();
+    const pages = this.measureService
+      ? paginateDocument(document, DEFAULT_PAGE_SETTINGS, (block, settings) => this.measureService!.measureBlock(block, settings))
+      : paginateDocument(document, DEFAULT_PAGE_SETTINGS);
 
     pagesEl.innerHTML = renderPagesToHtml(pages, DEFAULT_PAGE_SETTINGS);
   }

@@ -540,6 +540,15 @@ body .sp-v2-pages {
   align-items: center;
 }
 
+body .sp-measure-root {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  contain: layout style;
+}
+
 body .sp-page {
   position: relative;
   box-sizing: border-box;

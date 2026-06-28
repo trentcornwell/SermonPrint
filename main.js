@@ -700,6 +700,15 @@ body .sp-v2-pages {
   align-items: center;
 }
 
+body .sp-measure-root {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  contain: layout style;
+}
+
 body .sp-page {
   position: relative;
   box-sizing: border-box;
@@ -1363,17 +1372,17 @@ function newPage(number, availableHeightPx) {
     availableHeightPx
   };
 }
-function paginateDocument(document2, settings) {
+function paginateDocument(document2, settings, measureBlock = estimateBlockHeight) {
   const availableHeight = printableHeightPx(settings);
   const pages = [newPage(1, availableHeight)];
   let current = pages[0];
   for (let index = 0; index < document2.blocks.length; index++) {
     const block = document2.blocks[index];
-    const blockHeight = estimateBlockHeight(block, settings);
+    const blockHeight = measureBlock(block, settings);
     let heightToFit = blockHeight;
     const next = document2.blocks[index + 1];
     if (keepWithNext(block) && next) {
-      heightToFit += estimateBlockHeight(next, settings);
+      heightToFit += measureBlock(next, settings);
     }
     const doesNotFit = current.blocks.length > 0 && current.usedHeightPx + heightToFit > availableHeight;
     if (doesNotFit) {
@@ -1385,6 +1394,71 @@ function paginateDocument(document2, settings) {
   }
   return pages;
 }
+
+// src/engine/DomMeasure.ts
+var DomMeasureService = class {
+  constructor(ownerEl, renderBlockHtml) {
+    this.renderBlockHtml = renderBlockHtml;
+    this.cache = /* @__PURE__ */ new Map();
+    this.rootEl = document.createElement("div");
+    this.rootEl.className = "sp-measure-root";
+    this.pageEl = document.createElement("section");
+    this.pageEl.className = "sp-page";
+    this.contentEl = document.createElement("div");
+    this.contentEl.className = "sp-page-content";
+    this.pageEl.appendChild(this.contentEl);
+    this.rootEl.appendChild(this.pageEl);
+    ownerEl.appendChild(this.rootEl);
+  }
+  clear() {
+    this.cache.clear();
+  }
+  destroy() {
+    this.rootEl.remove();
+    this.cache.clear();
+  }
+  measureBlock(block, settings) {
+    const key = this.cacheKey(block, settings);
+    const cached = this.cache.get(key);
+    if (cached) return cached.heightPx;
+    this.applyPageSettings(settings);
+    this.contentEl.innerHTML = this.renderBlockHtml(block);
+    const blockEl = this.contentEl.firstElementChild;
+    if (!blockEl) return 0;
+    const rect = blockEl.getBoundingClientRect();
+    const style = window.getComputedStyle(blockEl);
+    const marginTop = Number.parseFloat(style.marginTop) || 0;
+    const marginBottom = Number.parseFloat(style.marginBottom) || 0;
+    const heightPx = rect.height + marginTop + marginBottom;
+    this.cache.set(key, { heightPx });
+    return heightPx;
+  }
+  applyPageSettings(settings) {
+    this.pageEl.setAttribute("style", `
+  width: ${settings.widthIn}in;
+  height: ${settings.heightIn}in;
+  padding: ${settings.marginTopIn}in ${settings.marginRightIn}in ${settings.marginBottomIn}in ${settings.marginLeftIn}in;
+`);
+  }
+  cacheKey(block, settings) {
+    var _a;
+    return JSON.stringify({
+      id: block.id,
+      type: block.type,
+      text: block.text,
+      html: (_a = block.html) != null ? _a : "",
+      widthIn: settings.widthIn,
+      heightIn: settings.heightIn,
+      marginTopIn: settings.marginTopIn,
+      marginRightIn: settings.marginRightIn,
+      marginBottomIn: settings.marginBottomIn,
+      marginLeftIn: settings.marginLeftIn,
+      fontSizePt: settings.fontSizePt,
+      lineHeight: settings.lineHeight,
+      paragraphSpacingPt: settings.paragraphSpacingPt
+    });
+  }
+};
 
 // src/renderer/BlockRenderer.ts
 function stripMarkdown2(text) {
@@ -1441,6 +1515,7 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     super(leaf);
     this.file = null;
     this.rootEl = null;
+    this.measureService = null;
     this.plugin = plugin;
   }
   getViewType() {
@@ -1452,18 +1527,25 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
   async onOpen() {
     this.containerEl.empty();
     this.rootEl = this.containerEl.createDiv({ cls: "sp-v2-root" });
+    this.measureService = new DomMeasureService(this.rootEl, blockToHtml);
     const toolbar = this.rootEl.createDiv({ cls: "sp-v2-toolbar" });
     toolbar.createEl("button", { text: "Refresh Pages" }).onclick = () => this.renderCurrentFile();
     toolbar.createEl("button", { text: "Back to Markdown" }).onclick = () => this.openMarkdownFile();
     this.rootEl.createDiv({ cls: "sp-v2-pages" });
     await this.renderCurrentFile();
   }
+  onClose() {
+    var _a;
+    (_a = this.measureService) == null ? void 0 : _a.destroy();
+    this.measureService = null;
+    return Promise.resolve();
+  }
   async setFile(file) {
     this.file = file;
     await this.renderCurrentFile();
   }
   async renderCurrentFile() {
-    var _a;
+    var _a, _b;
     const pagesEl = (_a = this.rootEl) == null ? void 0 : _a.querySelector(".sp-v2-pages");
     if (!pagesEl) return;
     const active = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
@@ -1475,7 +1557,8 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     this.file = file;
     const markdown = await this.app.vault.read(file);
     const document2 = parseMarkdownToDocument(markdown, file.basename);
-    const pages = paginateDocument(document2, DEFAULT_PAGE_SETTINGS);
+    (_b = this.measureService) == null ? void 0 : _b.clear();
+    const pages = this.measureService ? paginateDocument(document2, DEFAULT_PAGE_SETTINGS, (block, settings) => this.measureService.measureBlock(block, settings)) : paginateDocument(document2, DEFAULT_PAGE_SETTINGS);
     pagesEl.innerHTML = renderPagesToHtml(pages, DEFAULT_PAGE_SETTINGS);
   }
   async openMarkdownFile() {
