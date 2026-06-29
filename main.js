@@ -4,6 +4,9 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __commonJS = (cb, mod) => function __require() {
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -26,6 +29,264 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
+// src/export/ManuscriptHtml.js
+var require_ManuscriptHtml = __commonJS({
+  "src/export/ManuscriptHtml.js"(exports, module) {
+    var MANUSCRIPT_LAYOUT_DEFAULTS = {
+      fontFamily: "Georgia",
+      fontSize: "12.5pt",
+      pageWidth: "5.5in",
+      pageHeight: "8.5in",
+      margin: "0.58in",
+      lineHeight: "1.65",
+      verseColor: "#8b0000"
+    };
+    var MANUSCRIPT_SPACING = {
+      paragraph: ".20in",
+      blankLineHeight: ".24in",
+      brSpace: ".12in",
+      h1FontSize: "18pt",
+      h1LineHeight: "1.15",
+      h1Margin: "0 0 .22in 0",
+      h2FontSize: "15pt",
+      h2LineHeight: "1.22",
+      h2Margin: ".34in 0 .16in",
+      h3FontSize: "13pt",
+      h3LineHeight: "1.28",
+      h3Margin: ".28in 0 .13in",
+      h4FontSize: "12pt",
+      h4LineHeight: "1.25",
+      h4Margin: ".18in 0 .10in",
+      listMarginTop: ".10in",
+      listMarginBottom: ".18in",
+      listPaddingLeft: ".32in",
+      listItemBottom: ".10in",
+      blockquoteMargin: ".20in 0 .22in .18in",
+      blockquotePaddingLeft: ".15in",
+      hrMargin: ".22in 0"
+    };
+    function parseInches(value, fallback) {
+      const parsed = Number(String(value != null ? value : "").replace("in", "").trim());
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+    function parsePositiveInches(value, fallback) {
+      const parsed = parseInches(value, fallback);
+      return parsed > 0 ? parsed : fallback;
+    }
+    function normalizeSettings(settings = {}) {
+      return {
+        fontFamily: settings.fontFamily || MANUSCRIPT_LAYOUT_DEFAULTS.fontFamily,
+        fontSize: settings.fontSize || MANUSCRIPT_LAYOUT_DEFAULTS.fontSize,
+        pageWidth: settings.pageWidth || MANUSCRIPT_LAYOUT_DEFAULTS.pageWidth,
+        pageHeight: settings.pageHeight || MANUSCRIPT_LAYOUT_DEFAULTS.pageHeight,
+        margin: settings.margin || MANUSCRIPT_LAYOUT_DEFAULTS.margin,
+        lineHeight: settings.lineHeight || MANUSCRIPT_LAYOUT_DEFAULTS.lineHeight,
+        verseColor: settings.verseColor || settings.bibleVerseColor || MANUSCRIPT_LAYOUT_DEFAULTS.verseColor,
+        keepTogetherRules: settings.keepTogetherRules !== false,
+        autoPageBalancing: settings.autoPageBalancing !== false
+      };
+    }
+    function getManuscriptLayoutMetrics(settings = {}) {
+      const normalized = normalizeSettings(settings);
+      const pageWidthIn = parsePositiveInches(normalized.pageWidth, 5.5);
+      const pageHeightIn = parsePositiveInches(normalized.pageHeight, 8.5);
+      const marginIn = parsePositiveInches(normalized.margin, 0.58);
+      const printableWidthIn = Math.max(1, pageWidthIn - marginIn * 2);
+      const printableHeightIn = Math.max(1, pageHeightIn - marginIn * 2);
+      return {
+        pageWidth: normalized.pageWidth,
+        pageHeight: normalized.pageHeight,
+        margin: normalized.margin,
+        fontFamily: normalized.fontFamily,
+        fontSize: normalized.fontSize,
+        lineHeight: normalized.lineHeight,
+        pageWidthIn,
+        pageHeightIn,
+        marginIn,
+        printableWidthIn,
+        printableHeightIn,
+        previewGuideStepIn: printableHeightIn,
+        firstGuideTopIn: marginIn + printableHeightIn
+      };
+    }
+    function cleanMarkdown(value) {
+      return String(value).replace(/^kangaroo names\s*$/gim, "");
+    }
+    function preserveIntentionalBlankLines(markdown2) {
+      return String(markdown2).replace(/\n{3,}/g, '\n\n<div class="sp-blank-line"></div>\n\n');
+    }
+    function escapeHtml(value) {
+      return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+    }
+    function manuscriptContentCss(settings = {}, scope = ".sermonprint-export") {
+      const normalized = normalizeSettings(settings);
+      const s = MANUSCRIPT_SPACING;
+      return `
+${scope} {
+  box-sizing: border-box;
+  font-family: ${normalized.fontFamily}, Georgia, serif;
+  font-size: ${normalized.fontSize};
+  line-height: ${normalized.lineHeight};
+  color: #111;
+}
+
+${scope} h1 {
+  text-align: center;
+  font-size: ${s.h1FontSize};
+  line-height: ${s.h1LineHeight};
+  margin: ${s.h1Margin};
+}
+
+${scope} h2 {
+  font-size: ${s.h2FontSize};
+  line-height: ${s.h2LineHeight};
+  margin: ${s.h2Margin};
+}
+
+${scope} h3 {
+  font-size: ${s.h3FontSize};
+  line-height: ${s.h3LineHeight};
+  margin: ${s.h3Margin};
+}
+
+${scope} h4 {
+  font-size: ${s.h4FontSize};
+  line-height: ${s.h4LineHeight};
+  margin: ${s.h4Margin};
+}
+
+${scope} p {
+  margin: 0 0 ${s.paragraph} 0;
+  orphans: 3;
+  widows: 3;
+}
+
+${scope} br {
+  display: block;
+  content: "";
+  margin-bottom: ${s.brSpace};
+}
+
+${scope} .sp-blank-line {
+  display: block;
+  height: ${s.blankLineHeight};
+}
+
+${scope} ul,
+${scope} ol {
+  margin-top: ${s.listMarginTop};
+  margin-bottom: ${s.listMarginBottom};
+  padding-left: ${s.listPaddingLeft};
+}
+
+${scope} li {
+  margin-bottom: ${s.listItemBottom};
+}
+
+${scope} blockquote {
+  margin: ${s.blockquoteMargin};
+  padding-left: ${s.blockquotePaddingLeft};
+  border-left: 3px solid ${normalized.verseColor};
+  color: ${normalized.verseColor};
+  font-style: italic;
+}
+
+${scope} .sp-verse-text,
+${scope} font[color] {
+  color: ${normalized.verseColor} !important;
+}
+
+${scope} hr {
+  border: none;
+  border-top: 1px solid #cfcfcf;
+  margin: ${s.hrMargin};
+}
+
+${scope} .page-break {
+  break-after: page;
+  page-break-after: always;
+}
+`;
+    }
+    function keepTogetherCss(enabled) {
+      return enabled ? `
+h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+blockquote, table, pre, .callout { break-inside: avoid; page-break-inside: avoid; }
+li { break-inside: avoid; page-break-inside: avoid; }
+p { orphans: 3; widows: 3; }
+` : "";
+    }
+    function balanceCss(enabled) {
+      return enabled ? `
+h2 + blockquote, h2 + p, h2 + ol, h2 + ul,
+h3 + blockquote, h3 + p, h3 + ol, h3 + ul { break-before: avoid; page-break-before: avoid; }
+` : "";
+    }
+    function manuscriptPrintCss(settings = {}) {
+      const normalized = normalizeSettings(settings);
+      return `
+@page {
+  size: ${normalized.pageWidth} ${normalized.pageHeight};
+  margin: ${normalized.margin};
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: white;
+}
+
+body {
+  font-family: ${normalized.fontFamily}, Georgia, serif;
+  font-size: ${normalized.fontSize};
+  line-height: ${normalized.lineHeight};
+  color: #111;
+}
+
+${manuscriptContentCss(normalized, ".sermonprint-export")}
+${keepTogetherCss(normalized.keepTogetherRules)}
+${balanceCss(normalized.autoPageBalancing)}
+`;
+    }
+    function renderMarkdownToHtml(markdown) {
+      const MarkdownIt = eval("require")("markdown-it");
+      const md = new MarkdownIt({ html: true, linkify: true, typographer: true, breaks: true });
+      return md.render(preserveIntentionalBlankLines(cleanMarkdown(markdown)));
+    }
+    function buildPrintHtml(markdown2, settings = {}, title = "SermonPrint") {
+      return `
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<style>
+${manuscriptPrintCss(settings)}
+</style>
+</head>
+<body>
+<main class="sermonprint-export">
+${renderMarkdownToHtml(markdown2)}
+</main>
+</body>
+</html>
+`;
+    }
+    module.exports = {
+      MANUSCRIPT_LAYOUT_DEFAULTS,
+      MANUSCRIPT_SPACING,
+      buildPrintHtml,
+      cleanMarkdown,
+      getManuscriptLayoutMetrics,
+      manuscriptContentCss,
+      manuscriptPrintCss,
+      normalizeSettings,
+      preserveIntentionalBlankLines,
+      renderMarkdownToHtml
+    };
+  }
+});
+
 // src/main.ts
 var main_exports = {};
 __export(main_exports, {
@@ -33,6 +294,8 @@ __export(main_exports, {
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian5 = require("obsidian");
+var fs3 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
 
 // src/settings.ts
 var import_obsidian = require("obsidian");
@@ -61,11 +324,11 @@ function getPagePreset(value) {
   if (value === "custom") return null;
   return PAGE_PRESETS[value];
 }
-function parsePositiveInches(value, fallback) {
+function parsePositiveInches2(value, fallback) {
   const parsed = Number(String(value).replace("in", "").trim());
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
-function parseInches(value, fallback) {
+function parseInches2(value, fallback) {
   const parsed = Number(String(value).replace("in", "").trim());
   return Number.isFinite(parsed) ? parsed : fallback;
 }
@@ -183,26 +446,27 @@ var SermonPrintSettingTab = class extends import_obsidian.PluginSettingTab {
 };
 
 // src/styles.ts
+var import_ManuscriptHtml = __toESM(require_ManuscriptHtml());
 var STYLE_ID = "sermonprint-layout-styles";
-function numberFromInches(value) {
-  return parsePositiveInches(value, 1);
-}
 function numberFromAnyInch(value) {
-  return parseInches(value, 0);
+  return parseInches2(value, 0);
 }
 function getPageMetrics(settings) {
-  const pageHeight = numberFromInches(settings.pageHeight);
-  const pageWidth = numberFromInches(settings.pageWidth);
-  const margin = numberFromInches(settings.margin);
+  const metrics = (0, import_ManuscriptHtml.getManuscriptLayoutMetrics)(settings);
+  const pageHeight = metrics.pageHeightIn;
+  const pageWidth = metrics.pageWidthIn;
+  const margin = metrics.marginIn;
   const offset = numberFromAnyInch(settings.pageGuideOffset);
-  const printableHeight = Math.max(1, pageHeight - margin * 2);
-  return { pageHeight, pageWidth, margin, printableHeight, guideAt: Math.max(1, pageHeight - margin + offset) };
+  const printableHeight = metrics.printableHeightIn;
+  return { pageHeight, pageWidth, margin, printableHeight, guideAt: Math.max(1, metrics.firstGuideTopIn + offset) };
 }
 function injectLayoutStyles(settings) {
   var _a;
   (_a = document.getElementById(STYLE_ID)) == null ? void 0 : _a.remove();
   const { pageHeight, pageWidth, margin, guideAt } = getPageMetrics(settings);
   const textWidth = Math.max(1, pageWidth - margin * 2);
+  const defaults = import_ManuscriptHtml.MANUSCRIPT_LAYOUT_DEFAULTS;
+  const spacing = import_ManuscriptHtml.MANUSCRIPT_SPACING;
   const guideBackground = settings.showPageGuides ? `background-image: repeating-linear-gradient(
         to bottom,
         transparent 0,
@@ -246,14 +510,14 @@ function injectLayoutStyles(settings) {
 
 /* SermonPrint custom manuscript editor */
 body .sermonprint-manuscript-shell {
-  --sp-page-width: 5.5in;
-  --sp-page-height: 8.5in;
-  --sp-page-margin: .58in;
-  --sp-printable-height: 7.34in;
-  --sp-font-family: Georgia, serif;
-  --sp-font-size: 12.5pt;
-  --sp-line-height: 1.65;
-  --sp-verse-color: #8b0000;
+  --sp-page-width: ${defaults.pageWidth};
+  --sp-page-height: ${defaults.pageHeight};
+  --sp-page-margin: ${defaults.margin};
+  --sp-printable-height: ${pageHeight - margin * 2}in;
+  --sp-font-family: ${defaults.fontFamily}, serif;
+  --sp-font-size: ${defaults.fontSize};
+  --sp-line-height: ${defaults.lineHeight};
+  --sp-verse-color: ${defaults.verseColor};
   background: #d7d7d7;
   height: 100%;
   overflow: auto;
@@ -366,32 +630,32 @@ body .sermonprint-page-break-marker span {
   font-weight: 600;
 }
 body .sermonprint-manuscript-editor p {
-  margin: 0 0 .20in 0;
+  margin: 0 0 ${spacing.paragraph} 0;
 }
 body .sermonprint-manuscript-editor h1 {
   text-align: center;
-  font-size: 18pt;
-  line-height: 1.15;
-  margin: 0 0 .22in 0;
+  font-size: ${spacing.h1FontSize};
+  line-height: ${spacing.h1LineHeight};
+  margin: ${spacing.h1Margin};
 }
 body .sermonprint-manuscript-editor h2 {
-  font-size: 15pt;
-  line-height: 1.22;
-  margin: .34in 0 .16in;
+  font-size: ${spacing.h2FontSize};
+  line-height: ${spacing.h2LineHeight};
+  margin: ${spacing.h2Margin};
 }
 body .sermonprint-manuscript-editor h3 {
-  font-size: 13pt;
-  line-height: 1.28;
-  margin: .28in 0 .13in;
+  font-size: ${spacing.h3FontSize};
+  line-height: ${spacing.h3LineHeight};
+  margin: ${spacing.h3Margin};
 }
 body .sermonprint-manuscript-editor h4 {
-  font-size: 12pt;
-  line-height: 1.25;
-  margin: .18in 0 .10in;
+  font-size: ${spacing.h4FontSize};
+  line-height: ${spacing.h4LineHeight};
+  margin: ${spacing.h4Margin};
 }
 body .sermonprint-manuscript-editor blockquote {
-  margin: .20in 0 .22in .18in;
-  padding-left: .15in;
+  margin: ${spacing.blockquoteMargin};
+  padding-left: ${spacing.blockquotePaddingLeft};
   border-left: 3px solid var(--sp-verse-color);
   color: var(--sp-verse-color);
   font-style: italic;
@@ -402,12 +666,12 @@ body .sermonprint-manuscript-editor font[color] {
 }
 body .sermonprint-manuscript-editor ul,
 body .sermonprint-manuscript-editor ol {
-  margin-top: .10in;
-  margin-bottom: .18in;
-  padding-left: .32in;
+  margin-top: ${spacing.listMarginTop};
+  margin-bottom: ${spacing.listMarginBottom};
+  padding-left: ${spacing.listPaddingLeft};
 }
 body .sermonprint-manuscript-editor li {
-  margin-bottom: .10in;
+  margin-bottom: ${spacing.listItemBottom};
 }
 body .sermonprint-manuscript-editor div,
 body .sermonprint-manuscript-editor p,
@@ -419,10 +683,10 @@ body .sermonprint-manuscript-editor blockquote {
 
     body.sermonprint-layout {
       --sp-line-height: ${settings.lineHeight};
-      --sp-paragraph-space: 0.20in;
+      --sp-paragraph-space: ${spacing.paragraph};
       --sp-line-space: 0.095in;
-      --sp-heading-before: 0.28in;
-      --sp-heading-after: 0.13in;
+      --sp-heading-before: ${spacing.h3Margin.split(" ")[0]};
+      --sp-heading-after: ${spacing.h3Margin.split(" ")[2]};
     }
 
     body.sermonprint-layout .markdown-preview-view,
@@ -477,39 +741,36 @@ body .sermonprint-manuscript-editor blockquote {
     body.sermonprint-layout .markdown-rendered h1,
     body.sermonprint-layout .cm-header-1 {
       text-align: center !important;
-      font-size: 18pt !important;
-      line-height: 1.15 !important;
-      margin: 0 0 0.18in 0 !important;
+      font-size: ${spacing.h1FontSize} !important;
+      line-height: ${spacing.h1LineHeight} !important;
+      margin: ${spacing.h1Margin} !important;
       font-weight: 700 !important;
     }
 
     body.sermonprint-layout .markdown-preview-view h2,
     body.sermonprint-layout .markdown-rendered h2,
     body.sermonprint-layout .cm-header-2 {
-      font-size: 15pt !important;
-      line-height: 1.2 !important;
-      margin-top: var(--sp-heading-before) !important;
-      margin-bottom: var(--sp-heading-after) !important;
+      font-size: ${spacing.h2FontSize} !important;
+      line-height: ${spacing.h2LineHeight} !important;
+      margin: ${spacing.h2Margin} !important;
       font-weight: 700 !important;
     }
 
     body.sermonprint-layout .markdown-preview-view h3,
     body.sermonprint-layout .markdown-rendered h3,
     body.sermonprint-layout .cm-header-3 {
-      font-size: 13pt !important;
-      line-height: 1.25 !important;
-      margin-top: 0.22in !important;
-      margin-bottom: 0.09in !important;
+      font-size: ${spacing.h3FontSize} !important;
+      line-height: ${spacing.h3LineHeight} !important;
+      margin: ${spacing.h3Margin} !important;
       font-weight: 700 !important;
     }
 
     body.sermonprint-layout .markdown-preview-view h4,
     body.sermonprint-layout .markdown-rendered h4,
     body.sermonprint-layout .cm-header-4 {
-      font-size: 12pt !important;
-      line-height: 1.25 !important;
-      margin-top: 0.16in !important;
-      margin-bottom: 0.07in !important;
+      font-size: ${spacing.h4FontSize} !important;
+      line-height: ${spacing.h4LineHeight} !important;
+      margin: ${spacing.h4Margin} !important;
       font-weight: 700 !important;
     }
 
@@ -522,22 +783,22 @@ body .sermonprint-manuscript-editor blockquote {
     body.sermonprint-layout .markdown-preview-view ol,
     body.sermonprint-layout .markdown-rendered ul,
     body.sermonprint-layout .markdown-rendered ol {
-      margin-top: 0.08in !important;
-      margin-bottom: 0.13in !important;
-      padding-left: 0.30in !important;
+      margin-top: ${spacing.listMarginTop} !important;
+      margin-bottom: ${spacing.listMarginBottom} !important;
+      padding-left: ${spacing.listPaddingLeft} !important;
       max-width: ${textWidth}in !important;
     }
 
     body.sermonprint-layout .markdown-preview-view li,
     body.sermonprint-layout .markdown-rendered li {
-      margin-bottom: 0.055in !important;
+      margin-bottom: ${spacing.listItemBottom} !important;
     }
 
     body.sermonprint-layout .markdown-preview-view blockquote,
     body.sermonprint-layout .markdown-rendered blockquote,
     body.sermonprint-layout blockquote {
-      margin: 0.16in 0 0.16in 0.18in !important;
-      padding-left: 0.14in !important;
+      margin: ${spacing.blockquoteMargin} !important;
+      padding-left: ${spacing.blockquotePaddingLeft} !important;
       border-left: 3px solid #8b0000 !important;
       color: #8b0000 !important;
       font-style: italic !important;
@@ -1035,6 +1296,7 @@ var SermonPrintExporter = class {
 
 // src/manuscriptView.ts
 var import_obsidian3 = require("obsidian");
+var import_ManuscriptHtml2 = __toESM(require_ManuscriptHtml());
 var VIEW_TYPE_SERMONPRINT_MANUSCRIPT = "sermonprint-manuscript-view";
 var STRUCTURE_INSERTS = [
   { label: "Big Idea", markdown: "> **Big Idea:** " },
@@ -1058,6 +1320,7 @@ var STRUCTURE_INSERTS = [
   { label: "Scripture", markdown: "> " },
   { label: "Quote", markdown: "> " }
 ];
+var EXPORT_GUIDE_CALIBRATION_IN = 0;
 function inlineHtmlToMarkdown(el) {
   let output = "";
   el.childNodes.forEach((node) => {
@@ -1208,15 +1471,15 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
       return;
     }
     this.editorEl.empty();
-    const md = await this.plugin.app.vault.read(this.file);
-    await import_obsidian3.MarkdownRenderer.render(this.plugin.app, md, this.editorEl, this.file.path, this);
+    const md2 = await this.plugin.app.vault.read(this.file);
+    await import_obsidian3.MarkdownRenderer.render(this.plugin.app, md2, this.editorEl, this.file.path, this);
     new import_obsidian3.Notice("SermonPrint Manuscript View loaded.");
     this.scheduleGuideUpdate();
   }
   async save() {
     if (!this.file || !this.editorEl) return;
-    const markdown = htmlToMarkdown(this.editorEl);
-    await this.plugin.app.vault.modify(this.file, markdown);
+    const markdown2 = htmlToMarkdown(this.editorEl);
+    await this.plugin.app.vault.modify(this.file, markdown2);
     new import_obsidian3.Notice("SermonPrint manuscript saved.");
   }
   formatBlock(tag) {
@@ -1225,10 +1488,10 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
     document.execCommand("formatBlock", false, tag);
     this.scheduleGuideUpdate();
   }
-  insertMarkdownBlock(markdown) {
+  insertMarkdownBlock(markdown2) {
     var _a;
     (_a = this.editorEl) == null ? void 0 : _a.focus();
-    const lines = markdown.split("\n");
+    const lines = markdown2.split("\n");
     let html = "";
     for (const line of lines) {
       if (line.startsWith("### ")) html += `<h3>${line.slice(4)}</h3>`;
@@ -1266,9 +1529,9 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
   applyManuscriptVariables() {
     const shell = this.containerEl.querySelector(".sermonprint-manuscript-shell");
     if (!shell) return;
-    const pageWidth = parsePositiveInches(this.plugin.settings.pageWidth, 5.5);
-    const pageHeight = parsePositiveInches(this.plugin.settings.pageHeight, 8.5);
-    const margin = parsePositiveInches(this.plugin.settings.margin, 0.58);
+    const pageWidth = parsePositiveInches2(this.plugin.settings.pageWidth, 5.5);
+    const pageHeight = parsePositiveInches2(this.plugin.settings.pageHeight, 8.5);
+    const margin = parsePositiveInches2(this.plugin.settings.margin, 0.58);
     const fontSize = parsePositivePoints(this.plugin.settings.fontSize, 12.5);
     const lineHeight = Number(this.plugin.settings.lineHeight) || 1.65;
     const printableHeight = Math.max(1, pageHeight - margin * 2);
@@ -1289,15 +1552,43 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
     if (!this.editorEl || !this.guidesEl || !this.pageCountEl) return;
     this.applyManuscriptVariables();
     this.guidesEl.empty();
-    const pageHeightPx = parsePositiveInches(this.plugin.settings.pageHeight, 8.5) * INCH_TO_PX;
-    const totalHeight = Math.max(pageHeightPx, this.editorEl.scrollHeight + 24);
-    const pages = Math.max(1, Math.ceil(totalHeight / pageHeightPx));
-    for (let i = 1; i <= pages; i++) {
+    const metrics = (0, import_ManuscriptHtml2.getManuscriptLayoutMetrics)(this.plugin.settings);
+    const guideOffsetIn = parseInches2(this.plugin.settings.pageGuideOffset, 0);
+    const marginPx = metrics.marginIn * INCH_TO_PX;
+    const printableHeightPx2 = metrics.previewGuideStepIn * INCH_TO_PX;
+    const guideOffsetPx = (guideOffsetIn + EXPORT_GUIDE_CALIBRATION_IN) * INCH_TO_PX;
+    const editableContentHeight = Math.max(0, this.editorEl.scrollHeight - marginPx * 2);
+    const pages = Math.max(1, Math.ceil(editableContentHeight / printableHeightPx2));
+    for (let i = 1; i < pages; i++) {
       const marker = this.guidesEl.createDiv({ cls: "sermonprint-page-break-marker" });
-      marker.style.top = `${i * pageHeightPx}px`;
+      marker.style.top = `${marginPx + i * printableHeightPx2 + guideOffsetPx}px`;
       marker.createSpan({ text: `Page ${i + 1}` });
     }
     this.pageCountEl.setText(`Page 1 of ${pages}`);
+  }
+  getPaginationDiagnostics() {
+    if (!this.editorEl) return null;
+    const metrics = (0, import_ManuscriptHtml2.getManuscriptLayoutMetrics)(this.plugin.settings);
+    const guideOffsetIn = parseInches2(this.plugin.settings.pageGuideOffset, 0);
+    const marginPx = metrics.marginIn * INCH_TO_PX;
+    const printableHeightPx2 = metrics.previewGuideStepIn * INCH_TO_PX;
+    const guideOffsetPx = (guideOffsetIn + EXPORT_GUIDE_CALIBRATION_IN) * INCH_TO_PX;
+    const editableContentHeight = Math.max(0, this.editorEl.scrollHeight - marginPx * 2);
+    const previewPageCount = Math.max(1, Math.ceil(editableContentHeight / printableHeightPx2));
+    const blockEls = Array.from(this.editorEl.querySelectorAll("h1, h2, h3, h4, p, blockquote, li"));
+    const firstVisibleTextByGuide = [];
+    for (let i = 1; i < previewPageCount; i++) {
+      const guideTop = marginPx + i * printableHeightPx2 + guideOffsetPx;
+      const nearest = blockEls.find((el) => el.offsetTop + el.offsetHeight >= guideTop);
+      firstVisibleTextByGuide.push(((nearest == null ? void 0 : nearest.innerText) || (nearest == null ? void 0 : nearest.textContent) || "").replace(/\s+/g, " ").trim().slice(0, 90));
+    }
+    return {
+      previewPageCount,
+      previewEffectivePageStepIn: metrics.previewGuideStepIn,
+      exportPageSize: `${metrics.pageWidth} x ${metrics.pageHeight}`,
+      exportMargin: metrics.margin,
+      firstVisibleTextByGuide
+    };
   }
 };
 
@@ -1320,8 +1611,8 @@ function detectType(line) {
   if (clean.startsWith("**conclusion")) return "conclusion";
   return "paragraph";
 }
-function parseMarkdownToDocument(markdown, fallbackTitle = "Untitled Sermon") {
-  const chunks = markdown.split(/\n{2,}/).map((x) => x.trim()).filter(Boolean);
+function parseMarkdownToDocument(markdown2, fallbackTitle = "Untitled Sermon") {
+  const chunks = markdown2.split(/\n{2,}/).map((x) => x.trim()).filter(Boolean);
   const blocks = chunks.map((chunk, index) => {
     const type = detectType(chunk);
     const level = chunk.startsWith("### ") ? 3 : chunk.startsWith("## ") ? 2 : chunk.startsWith("# ") ? 1 : void 0;
@@ -1595,8 +1886,8 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
       return;
     }
     this.file = file;
-    const markdown = await this.app.vault.read(file);
-    const document2 = parseMarkdownToDocument(markdown, file.basename);
+    const markdown2 = await this.app.vault.read(file);
+    const document2 = parseMarkdownToDocument(markdown2, file.basename);
     (_b = this.measureService) == null ? void 0 : _b.clear();
     const measuredHeights = (_c = this.measureService) == null ? void 0 : _c.measureBlocks(document2.blocks, DEFAULT_PAGE_SETTINGS);
     const pages = measuredHeights ? paginateDocument(document2, DEFAULT_PAGE_SETTINGS, (block, settings) => {
@@ -1666,6 +1957,11 @@ var SermonPrintPlugin = class extends import_obsidian5.Plugin {
       name: "Edit & Export",
       callback: async () => this.openManuscriptView()
     });
+    this.addCommand({
+      id: "sermonprint-compare-preview-pdf-pagination",
+      name: "Compare Preview and PDF Pagination",
+      callback: async () => this.comparePreviewAndPdfPagination()
+    });
   }
   async exportWithMode(mode) {
     await this.exporter.exportCurrentNote(mode);
@@ -1680,6 +1976,47 @@ var SermonPrintPlugin = class extends import_obsidian5.Plugin {
     if (!leaf) leaf = this.app.workspace.getLeaf(true);
     await leaf.setViewState({ type: VIEW_TYPE_SERMONPRINT_MANUSCRIPT, active: true });
     this.app.workspace.revealLeaf(leaf);
+  }
+  async comparePreviewAndPdfPagination() {
+    var _a, _b, _c;
+    const file = this.app.workspace.getActiveFile();
+    const manuscriptView = (_a = this.app.workspace.getLeavesOfType(VIEW_TYPE_SERMONPRINT_MANUSCRIPT)[0]) == null ? void 0 : _a.view;
+    const preview = (_b = manuscriptView == null ? void 0 : manuscriptView.getPaginationDiagnostics()) != null ? _b : null;
+    const pdfPath = file ? this.getExportedPdfPath(file.basename) : null;
+    const pdfPageCount = pdfPath && fs3.existsSync(pdfPath) ? this.readPdfPageCount(pdfPath) : null;
+    const lines = [
+      "SermonPrint pagination diagnostics",
+      `Preview page count: ${(_c = preview == null ? void 0 : preview.previewPageCount) != null ? _c : "unavailable - open Legacy Edit & Export"}`,
+      `PDF page count: ${pdfPageCount != null ? pdfPageCount : "unavailable - export PDF first"}`,
+      `Preview effective page step: ${preview ? `${preview.previewEffectivePageStepIn.toFixed(3)}in` : "unavailable"}`,
+      `Export page size/margins: ${preview ? `${preview.exportPageSize}, margin ${preview.exportMargin}` : `${this.settings.pageWidth} x ${this.settings.pageHeight}, margin ${this.settings.margin}`}`,
+      `Preview guide text: ${(preview == null ? void 0 : preview.firstVisibleTextByGuide.length) ? preview.firstVisibleTextByGuide.map((text, index) => `Page ${index + 2}: ${text || "(blank)"}`).join(" | ") : "unavailable"}`,
+      `PDF path: ${pdfPath != null ? pdfPath : "unavailable"}`
+    ];
+    console.log(lines.join("\n"));
+    new import_obsidian5.Notice(lines.slice(1, 5).join("\n"), 12e3);
+  }
+  getExportedPdfPath(basename) {
+    const vaultPath = this.getVaultPath();
+    if (!vaultPath) return null;
+    const configuredFolder = (this.settings.pdfFolder || "Sermon PDFs").trim();
+    const exportFolder = path4.isAbsolute(configuredFolder) ? configuredFolder : path4.join(vaultPath, configuredFolder);
+    return path4.join(exportFolder, `${basename} SermonPrint.pdf`);
+  }
+  getVaultPath() {
+    var _a, _b, _c;
+    const adapter = this.app.vault.adapter;
+    return (_c = (_b = (_a = adapter.getBasePath) == null ? void 0 : _a.call(adapter)) != null ? _b : adapter.basePath) != null ? _c : null;
+  }
+  readPdfPageCount(pdfPath) {
+    var _a;
+    try {
+      const text = fs3.readFileSync(pdfPath).toString("latin1");
+      const matches = text.match(/\/Type\s*\/Page\b/g);
+      return (_a = matches == null ? void 0 : matches.length) != null ? _a : null;
+    } catch (e) {
+      return null;
+    }
   }
   onunload() {
     removeLayoutStyles();

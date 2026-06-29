@@ -1,6 +1,7 @@
 import { ItemView, MarkdownRenderer, Notice, TFile, WorkspaceLeaf } from "obsidian";
 import SermonPrintPlugin from "./main";
-import { getPagePreset, INCH_TO_PX, parsePositiveInches, parsePositivePoints } from "./engine/Layout";
+import { getPagePreset, INCH_TO_PX, parseInches, parsePositiveInches, parsePositivePoints } from "./engine/Layout";
+import { getManuscriptLayoutMetrics } from "./export/ManuscriptHtml";
 
 export const VIEW_TYPE_SERMONPRINT_MANUSCRIPT = "sermonprint-manuscript-view";
 
@@ -33,6 +34,18 @@ const STRUCTURE_INSERTS: StructureInsert[] = [
   { label: "Scripture", markdown: "> " },
   { label: "Quote", markdown: "> " }
 ];
+
+// Shared metrics match Playwright's @page printable area. This remains as a
+// named final adjustment if Chromium's editable DOM and PDF engines diverge.
+const EXPORT_GUIDE_CALIBRATION_IN = 0;
+
+export interface ManuscriptPaginationDiagnostics {
+  previewPageCount: number;
+  previewEffectivePageStepIn: number;
+  exportPageSize: string;
+  exportMargin: string;
+  firstVisibleTextByGuide: string[];
+}
 
 function inlineHtmlToMarkdown(el: HTMLElement): string {
   let output = "";
@@ -304,16 +317,48 @@ export class SermonPrintManuscriptView extends ItemView {
     this.applyManuscriptVariables();
     this.guidesEl.empty();
 
-    const pageHeightPx = parsePositiveInches(this.plugin.settings.pageHeight, 8.5) * INCH_TO_PX;
-    const totalHeight = Math.max(pageHeightPx, this.editorEl.scrollHeight + 24);
-    const pages = Math.max(1, Math.ceil(totalHeight / pageHeightPx));
+    const metrics = getManuscriptLayoutMetrics(this.plugin.settings);
+    const guideOffsetIn = parseInches(this.plugin.settings.pageGuideOffset, 0);
+    const marginPx = metrics.marginIn * INCH_TO_PX;
+    const printableHeightPx = metrics.previewGuideStepIn * INCH_TO_PX;
+    const guideOffsetPx = (guideOffsetIn + EXPORT_GUIDE_CALIBRATION_IN) * INCH_TO_PX;
+    const editableContentHeight = Math.max(0, this.editorEl.scrollHeight - marginPx * 2);
+    const pages = Math.max(1, Math.ceil(editableContentHeight / printableHeightPx));
 
-    for (let i = 1; i <= pages; i++) {
+    for (let i = 1; i < pages; i++) {
       const marker = this.guidesEl.createDiv({ cls: "sermonprint-page-break-marker" });
-      marker.style.top = `${i * pageHeightPx}px`;
+      marker.style.top = `${marginPx + i * printableHeightPx + guideOffsetPx}px`;
       marker.createSpan({ text: `Page ${i + 1}` });
     }
 
     this.pageCountEl.setText(`Page 1 of ${pages}`);
+  }
+
+  getPaginationDiagnostics(): ManuscriptPaginationDiagnostics | null {
+    if (!this.editorEl) return null;
+
+    const metrics = getManuscriptLayoutMetrics(this.plugin.settings);
+    const guideOffsetIn = parseInches(this.plugin.settings.pageGuideOffset, 0);
+    const marginPx = metrics.marginIn * INCH_TO_PX;
+    const printableHeightPx = metrics.previewGuideStepIn * INCH_TO_PX;
+    const guideOffsetPx = (guideOffsetIn + EXPORT_GUIDE_CALIBRATION_IN) * INCH_TO_PX;
+    const editableContentHeight = Math.max(0, this.editorEl.scrollHeight - marginPx * 2);
+    const previewPageCount = Math.max(1, Math.ceil(editableContentHeight / printableHeightPx));
+    const blockEls = Array.from(this.editorEl.querySelectorAll<HTMLElement>("h1, h2, h3, h4, p, blockquote, li"));
+    const firstVisibleTextByGuide: string[] = [];
+
+    for (let i = 1; i < previewPageCount; i++) {
+      const guideTop = marginPx + i * printableHeightPx + guideOffsetPx;
+      const nearest = blockEls.find((el) => el.offsetTop + el.offsetHeight >= guideTop);
+      firstVisibleTextByGuide.push((nearest?.innerText || nearest?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 90));
+    }
+
+    return {
+      previewPageCount,
+      previewEffectivePageStepIn: metrics.previewGuideStepIn,
+      exportPageSize: `${metrics.pageWidth} x ${metrics.pageHeight}`,
+      exportMargin: metrics.margin,
+      firstVisibleTextByGuide,
+    };
   }
 }

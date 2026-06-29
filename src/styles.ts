@@ -1,11 +1,8 @@
 import { SermonPrintSettings } from "./settings";
-import { parseInches, parsePositiveInches } from "./engine/Layout";
+import { parseInches } from "./engine/Layout";
+import { MANUSCRIPT_LAYOUT_DEFAULTS, MANUSCRIPT_SPACING, getManuscriptLayoutMetrics } from "./export/ManuscriptHtml";
 
 const STYLE_ID = "sermonprint-layout-styles";
-
-function numberFromInches(value: string): number {
-  return parsePositiveInches(value, 1);
-}
 
 function numberFromAnyInch(value: string): number {
   return parseInches(value, 0);
@@ -18,12 +15,13 @@ export function getPageMetrics(settings: SermonPrintSettings): {
   printableHeight: number;
   guideAt: number;
 } {
-  const pageHeight = numberFromInches(settings.pageHeight);
-  const pageWidth = numberFromInches(settings.pageWidth);
-  const margin = numberFromInches(settings.margin);
+  const metrics = getManuscriptLayoutMetrics(settings);
+  const pageHeight = metrics.pageHeightIn;
+  const pageWidth = metrics.pageWidthIn;
+  const margin = metrics.marginIn;
   const offset = numberFromAnyInch(settings.pageGuideOffset);
-  const printableHeight = Math.max(1, pageHeight - margin * 2);
-  return { pageHeight, pageWidth, margin, printableHeight, guideAt: Math.max(1, pageHeight - margin + offset) };
+  const printableHeight = metrics.printableHeightIn;
+  return { pageHeight, pageWidth, margin, printableHeight, guideAt: Math.max(1, metrics.firstGuideTopIn + offset) };
 }
 
 export function injectLayoutStyles(settings: SermonPrintSettings): void {
@@ -31,6 +29,8 @@ export function injectLayoutStyles(settings: SermonPrintSettings): void {
 
   const { pageHeight, pageWidth, margin, guideAt } = getPageMetrics(settings);
   const textWidth = Math.max(1, pageWidth - margin * 2);
+  const defaults = MANUSCRIPT_LAYOUT_DEFAULTS;
+  const spacing = MANUSCRIPT_SPACING;
 
   // In editable Live Preview, the paper card includes padding for margins.
   // The red guide marks the bottom of the printable area on each physical page.
@@ -86,14 +86,14 @@ export function injectLayoutStyles(settings: SermonPrintSettings): void {
 
 /* SermonPrint custom manuscript editor */
 body .sermonprint-manuscript-shell {
-  --sp-page-width: 5.5in;
-  --sp-page-height: 8.5in;
-  --sp-page-margin: .58in;
-  --sp-printable-height: 7.34in;
-  --sp-font-family: Georgia, serif;
-  --sp-font-size: 12.5pt;
-  --sp-line-height: 1.65;
-  --sp-verse-color: #8b0000;
+  --sp-page-width: ${defaults.pageWidth};
+  --sp-page-height: ${defaults.pageHeight};
+  --sp-page-margin: ${defaults.margin};
+  --sp-printable-height: ${pageHeight - margin * 2}in;
+  --sp-font-family: ${defaults.fontFamily}, serif;
+  --sp-font-size: ${defaults.fontSize};
+  --sp-line-height: ${defaults.lineHeight};
+  --sp-verse-color: ${defaults.verseColor};
   background: #d7d7d7;
   height: 100%;
   overflow: auto;
@@ -206,32 +206,32 @@ body .sermonprint-page-break-marker span {
   font-weight: 600;
 }
 body .sermonprint-manuscript-editor p {
-  margin: 0 0 .20in 0;
+  margin: 0 0 ${spacing.paragraph} 0;
 }
 body .sermonprint-manuscript-editor h1 {
   text-align: center;
-  font-size: 18pt;
-  line-height: 1.15;
-  margin: 0 0 .22in 0;
+  font-size: ${spacing.h1FontSize};
+  line-height: ${spacing.h1LineHeight};
+  margin: ${spacing.h1Margin};
 }
 body .sermonprint-manuscript-editor h2 {
-  font-size: 15pt;
-  line-height: 1.22;
-  margin: .34in 0 .16in;
+  font-size: ${spacing.h2FontSize};
+  line-height: ${spacing.h2LineHeight};
+  margin: ${spacing.h2Margin};
 }
 body .sermonprint-manuscript-editor h3 {
-  font-size: 13pt;
-  line-height: 1.28;
-  margin: .28in 0 .13in;
+  font-size: ${spacing.h3FontSize};
+  line-height: ${spacing.h3LineHeight};
+  margin: ${spacing.h3Margin};
 }
 body .sermonprint-manuscript-editor h4 {
-  font-size: 12pt;
-  line-height: 1.25;
-  margin: .18in 0 .10in;
+  font-size: ${spacing.h4FontSize};
+  line-height: ${spacing.h4LineHeight};
+  margin: ${spacing.h4Margin};
 }
 body .sermonprint-manuscript-editor blockquote {
-  margin: .20in 0 .22in .18in;
-  padding-left: .15in;
+  margin: ${spacing.blockquoteMargin};
+  padding-left: ${spacing.blockquotePaddingLeft};
   border-left: 3px solid var(--sp-verse-color);
   color: var(--sp-verse-color);
   font-style: italic;
@@ -242,12 +242,12 @@ body .sermonprint-manuscript-editor font[color] {
 }
 body .sermonprint-manuscript-editor ul,
 body .sermonprint-manuscript-editor ol {
-  margin-top: .10in;
-  margin-bottom: .18in;
-  padding-left: .32in;
+  margin-top: ${spacing.listMarginTop};
+  margin-bottom: ${spacing.listMarginBottom};
+  padding-left: ${spacing.listPaddingLeft};
 }
 body .sermonprint-manuscript-editor li {
-  margin-bottom: .10in;
+  margin-bottom: ${spacing.listItemBottom};
 }
 body .sermonprint-manuscript-editor div,
 body .sermonprint-manuscript-editor p,
@@ -259,10 +259,10 @@ body .sermonprint-manuscript-editor blockquote {
 
     body.sermonprint-layout {
       --sp-line-height: ${settings.lineHeight};
-      --sp-paragraph-space: 0.20in;
+      --sp-paragraph-space: ${spacing.paragraph};
       --sp-line-space: 0.095in;
-      --sp-heading-before: 0.28in;
-      --sp-heading-after: 0.13in;
+      --sp-heading-before: ${spacing.h3Margin.split(" ")[0]};
+      --sp-heading-after: ${spacing.h3Margin.split(" ")[2]};
     }
 
     body.sermonprint-layout .markdown-preview-view,
@@ -317,39 +317,36 @@ body .sermonprint-manuscript-editor blockquote {
     body.sermonprint-layout .markdown-rendered h1,
     body.sermonprint-layout .cm-header-1 {
       text-align: center !important;
-      font-size: 18pt !important;
-      line-height: 1.15 !important;
-      margin: 0 0 0.18in 0 !important;
+      font-size: ${spacing.h1FontSize} !important;
+      line-height: ${spacing.h1LineHeight} !important;
+      margin: ${spacing.h1Margin} !important;
       font-weight: 700 !important;
     }
 
     body.sermonprint-layout .markdown-preview-view h2,
     body.sermonprint-layout .markdown-rendered h2,
     body.sermonprint-layout .cm-header-2 {
-      font-size: 15pt !important;
-      line-height: 1.2 !important;
-      margin-top: var(--sp-heading-before) !important;
-      margin-bottom: var(--sp-heading-after) !important;
+      font-size: ${spacing.h2FontSize} !important;
+      line-height: ${spacing.h2LineHeight} !important;
+      margin: ${spacing.h2Margin} !important;
       font-weight: 700 !important;
     }
 
     body.sermonprint-layout .markdown-preview-view h3,
     body.sermonprint-layout .markdown-rendered h3,
     body.sermonprint-layout .cm-header-3 {
-      font-size: 13pt !important;
-      line-height: 1.25 !important;
-      margin-top: 0.22in !important;
-      margin-bottom: 0.09in !important;
+      font-size: ${spacing.h3FontSize} !important;
+      line-height: ${spacing.h3LineHeight} !important;
+      margin: ${spacing.h3Margin} !important;
       font-weight: 700 !important;
     }
 
     body.sermonprint-layout .markdown-preview-view h4,
     body.sermonprint-layout .markdown-rendered h4,
     body.sermonprint-layout .cm-header-4 {
-      font-size: 12pt !important;
-      line-height: 1.25 !important;
-      margin-top: 0.16in !important;
-      margin-bottom: 0.07in !important;
+      font-size: ${spacing.h4FontSize} !important;
+      line-height: ${spacing.h4LineHeight} !important;
+      margin: ${spacing.h4Margin} !important;
       font-weight: 700 !important;
     }
 
@@ -362,22 +359,22 @@ body .sermonprint-manuscript-editor blockquote {
     body.sermonprint-layout .markdown-preview-view ol,
     body.sermonprint-layout .markdown-rendered ul,
     body.sermonprint-layout .markdown-rendered ol {
-      margin-top: 0.08in !important;
-      margin-bottom: 0.13in !important;
-      padding-left: 0.30in !important;
+      margin-top: ${spacing.listMarginTop} !important;
+      margin-bottom: ${spacing.listMarginBottom} !important;
+      padding-left: ${spacing.listPaddingLeft} !important;
       max-width: ${textWidth}in !important;
     }
 
     body.sermonprint-layout .markdown-preview-view li,
     body.sermonprint-layout .markdown-rendered li {
-      margin-bottom: 0.055in !important;
+      margin-bottom: ${spacing.listItemBottom} !important;
     }
 
     body.sermonprint-layout .markdown-preview-view blockquote,
     body.sermonprint-layout .markdown-rendered blockquote,
     body.sermonprint-layout blockquote {
-      margin: 0.16in 0 0.16in 0.18in !important;
-      padding-left: 0.14in !important;
+      margin: ${spacing.blockquoteMargin} !important;
+      padding-left: ${spacing.blockquotePaddingLeft} !important;
       border-left: 3px solid #8b0000 !important;
       color: #8b0000 !important;
       font-style: italic !important;
