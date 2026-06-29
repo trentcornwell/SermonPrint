@@ -29,6 +29,8 @@ export class ManuscriptEditorV2View extends ItemView {
   cancelEditButton: HTMLButtonElement | null = null;
   saveButton: HTMLButtonElement | null = null;
   dirtyIndicatorEl: HTMLElement | null = null;
+  modeIndicatorEl: HTMLElement | null = null;
+  pageCountEl: HTMLElement | null = null;
   currentPages: ReturnType<typeof paginateDocument> = [];
   currentMeasuredHeights: Map<string, number> | undefined;
   renderedMarkdownSnapshot = "";
@@ -71,6 +73,8 @@ export class ManuscriptEditorV2View extends ItemView {
     this.saveButton.disabled = true;
     this.saveButton.onclick = () => this.saveEditedMarkdown();
     this.dirtyIndicatorEl = toolbar.createSpan({ text: "● Unsaved", cls: "sp-v2-dirty-indicator" });
+    this.modeIndicatorEl = toolbar.createSpan({ text: "Viewing", cls: "sp-v2-mode-indicator" });
+    this.pageCountEl = toolbar.createSpan({ text: "0 pages", cls: "sp-v2-page-count" });
     this.updateEditStateControls();
     toolbar.createEl("button", { text: "Export PDF" }).onclick = () => this.exportWithUnsavedGuard("pdf");
     toolbar.createEl("button", { text: "Export Booklet" }).onclick = () => this.exportWithUnsavedGuard("booklet");
@@ -155,6 +159,12 @@ export class ManuscriptEditorV2View extends ItemView {
     if (this.cancelEditButton) this.cancelEditButton.toggleClass("is-hidden", !this.editMode);
     if (this.saveButton) this.saveButton.disabled = !this.editMode || !this.dirty;
     if (this.dirtyIndicatorEl) this.dirtyIndicatorEl.toggleClass("is-visible", this.editMode && this.dirty);
+    if (this.modeIndicatorEl) {
+      this.modeIndicatorEl.setText(this.editMode ? (this.dirty ? "Unsaved" : "Editing") : "Viewing");
+      this.modeIndicatorEl.toggleClass("is-editing", this.editMode && !this.dirty);
+      this.modeIndicatorEl.toggleClass("is-unsaved", this.editMode && this.dirty);
+    }
+    if (this.pageCountEl) this.pageCountEl.setText(`${this.currentPages.length} ${this.currentPages.length === 1 ? "page" : "pages"}`);
   }
 
   private hasUnsavedEdits(): boolean {

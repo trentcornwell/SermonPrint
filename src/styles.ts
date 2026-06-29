@@ -538,6 +538,7 @@ body .sp-v2-toolbar button.is-active {
   background: #fff3f3;
   border-color: rgba(139,0,0,.45);
   color: #8b0000;
+  font-weight: 700;
 }
 
 body .sp-v2-toolbar button.is-hidden {
@@ -554,6 +555,24 @@ body .sp-v2-dirty-indicator {
 
 body .sp-v2-dirty-indicator.is-visible {
   display: inline-flex;
+}
+
+body .sp-v2-mode-indicator,
+body .sp-v2-page-count {
+  color: #555;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 0;
+}
+
+body .sp-v2-mode-indicator.is-editing {
+  color: #333;
+}
+
+body .sp-v2-mode-indicator.is-unsaved {
+  color: #8b0000;
 }
 
 body .sp-v2-pages {
