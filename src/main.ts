@@ -35,6 +35,12 @@ export default class SermonPrintPlugin extends Plugin {
     this.addCommand({
       id: "sermonprint-edit-export",
       name: "Edit & Export",
+      callback: () => openManuscriptEngineV2(this)
+    });
+
+    this.addCommand({
+      id: "sermonprint-legacy-edit-export",
+      name: "Legacy Edit & Export",
       callback: async () => this.openManuscriptView()
     });
   }

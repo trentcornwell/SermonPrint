@@ -694,6 +694,28 @@ body .sp-v2-toolbar {
   border-bottom: 1px solid rgba(0,0,0,.12);
 }
 
+body .sp-v2-toolbar button.is-active {
+  background: #fff3f3;
+  border-color: rgba(139,0,0,.45);
+  color: #8b0000;
+}
+
+body .sp-v2-toolbar button.is-hidden {
+  display: none;
+}
+
+body .sp-v2-dirty-indicator {
+  display: none;
+  color: #8b0000;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+body .sp-v2-dirty-indicator.is-visible {
+  display: inline-flex;
+}
+
 body .sp-v2-pages {
   display: flex;
   flex-direction: column;
@@ -736,6 +758,13 @@ body .sp-page-number {
   border: 1px solid rgba(139,0,0,.25);
   border-radius: 999px;
   padding: 2px 8px;
+}
+
+body .sp-page-content.is-editing {
+  outline: 2px solid rgba(139,0,0,.55);
+  outline-offset: 6px;
+  background: rgba(139,0,0,.035);
+  caret-color: #8b0000;
 }
 
 body .sp-debug-overlay {
@@ -1551,7 +1580,15 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     this.file = null;
     this.rootEl = null;
     this.measureService = null;
+    this.editButton = null;
+    this.cancelEditButton = null;
+    this.saveButton = null;
+    this.dirtyIndicatorEl = null;
+    this.currentPages = [];
+    this.renderedMarkdownSnapshot = "";
     this.debugEnabled = false;
+    this.editMode = false;
+    this.dirty = false;
     this.plugin = plugin;
   }
   getViewType() {
@@ -1565,11 +1602,29 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     this.rootEl = this.containerEl.createDiv({ cls: "sp-v2-root" });
     this.measureService = new DomMeasureService(this.rootEl, blockToHtml);
     const toolbar = this.rootEl.createDiv({ cls: "sp-v2-toolbar" });
-    toolbar.createEl("button", { text: "Refresh Pages" }).onclick = () => this.renderCurrentFile();
-    toolbar.createEl("button", { text: "Back to Markdown" }).onclick = () => this.openMarkdownFile();
-    toolbar.createEl("button", { text: "Debug" }).onclick = async () => {
+    toolbar.createEl("button", { text: "Refresh" }).onclick = () => this.refreshFromDiskWithWarning();
+    toolbar.createEl("button", { text: "Back to Markdown" }).onclick = () => this.openMarkdownFileWithWarning();
+    this.editButton = toolbar.createEl("button", { text: "Edit Mode" });
+    this.editButton.onclick = () => {
+      if (this.editMode) return;
+      this.editMode = true;
+      this.applyEditModeToPages();
+    };
+    this.cancelEditButton = toolbar.createEl("button", { text: "Cancel Edit" });
+    this.cancelEditButton.onclick = () => this.cancelEditMode();
+    this.saveButton = toolbar.createEl("button", { text: "Save" });
+    this.saveButton.disabled = true;
+    this.saveButton.onclick = () => this.saveEditedMarkdown();
+    this.dirtyIndicatorEl = toolbar.createSpan({ text: "\u25CF Unsaved", cls: "sp-v2-dirty-indicator" });
+    this.updateEditStateControls();
+    toolbar.createEl("button", { text: "Export PDF" }).onclick = () => this.plugin.exportWithMode("pdf");
+    toolbar.createEl("button", { text: "Export Booklet" }).onclick = () => this.plugin.exportWithMode("booklet");
+    const debugButton = toolbar.createEl("button", { text: "Debug" });
+    debugButton.toggleClass("is-active", this.debugEnabled);
+    debugButton.onclick = () => {
       this.debugEnabled = !this.debugEnabled;
-      await this.renderCurrentFile();
+      debugButton.toggleClass("is-active", this.debugEnabled);
+      this.updateDebugOverlays();
     };
     this.rootEl.createDiv({ cls: "sp-v2-pages" });
     await this.renderCurrentFile();
@@ -1584,7 +1639,7 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     this.file = file;
     await this.renderCurrentFile();
   }
-  async renderCurrentFile() {
+  async renderCurrentFile(restoreState = null) {
     var _a, _b, _c;
     const pagesEl = (_a = this.rootEl) == null ? void 0 : _a.querySelector(".sp-v2-pages");
     if (!pagesEl) return;
@@ -1603,8 +1658,220 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
       var _a2;
       return (_a2 = measuredHeights.get(block.id)) != null ? _a2 : estimateBlockHeight(block, settings);
     }) : paginateDocument(document2, DEFAULT_PAGE_SETTINGS);
+    this.currentPages = pages;
+    this.currentMeasuredHeights = measuredHeights;
+    this.dirty = false;
     pagesEl.innerHTML = renderPagesToHtml(pages, DEFAULT_PAGE_SETTINGS);
-    if (this.debugEnabled) this.renderDebugOverlays(pagesEl, pages, measuredHeights);
+    this.renderedMarkdownSnapshot = this.markdownFromRenderedPages();
+    this.applyEditModeToPages();
+    this.updateDebugOverlays();
+    if (restoreState) this.restorePosition(restoreState);
+  }
+  applyEditModeToPages() {
+    var _a;
+    const pagesEl = (_a = this.rootEl) == null ? void 0 : _a.querySelector(".sp-v2-pages");
+    this.updateEditStateControls();
+    if (!pagesEl) return;
+    pagesEl.querySelectorAll(".sp-page-content").forEach((contentEl) => {
+      contentEl.contentEditable = this.editMode ? "true" : "false";
+      contentEl.spellcheck = this.editMode;
+      contentEl.toggleClass("is-editing", this.editMode);
+      contentEl.oninput = this.editMode ? () => this.markDirty() : null;
+      contentEl.onbeforeinput = this.editMode ? () => this.markDirty() : null;
+      contentEl.onpaste = this.editMode ? () => this.markDirty() : null;
+    });
+  }
+  markDirty() {
+    if (!this.editMode || this.dirty) return;
+    this.dirty = true;
+    this.updateEditStateControls();
+  }
+  updateEditStateControls() {
+    if (this.editButton) this.editButton.toggleClass("is-active", this.editMode);
+    if (this.cancelEditButton) this.cancelEditButton.toggleClass("is-hidden", !this.editMode);
+    if (this.saveButton) this.saveButton.disabled = !this.editMode || !this.dirty;
+    if (this.dirtyIndicatorEl) this.dirtyIndicatorEl.toggleClass("is-visible", this.editMode && this.dirty);
+  }
+  hasUnsavedEdits() {
+    return this.editMode && (this.dirty || this.markdownFromRenderedPages() !== this.renderedMarkdownSnapshot);
+  }
+  confirmDiscardUnsavedChanges(action) {
+    if (!this.hasUnsavedEdits()) return true;
+    return window.confirm(`You have unsaved Engine V2 edits. ${action}?`);
+  }
+  async refreshFromDiskWithWarning() {
+    if (!this.confirmDiscardUnsavedChanges("Discard them and refresh from markdown")) return;
+    await this.renderCurrentFile(this.captureRestoreState());
+  }
+  async openMarkdownFileWithWarning() {
+    if (!this.confirmDiscardUnsavedChanges("Leave without saving")) return;
+    await this.openMarkdownFile();
+  }
+  async cancelEditMode() {
+    const restoreState = this.captureRestoreState();
+    this.editMode = false;
+    this.dirty = false;
+    this.updateEditStateControls();
+    await this.renderCurrentFile(restoreState);
+  }
+  updateDebugOverlays() {
+    var _a;
+    const pagesEl = (_a = this.rootEl) == null ? void 0 : _a.querySelector(".sp-v2-pages");
+    if (!pagesEl) return;
+    pagesEl.querySelectorAll(".sp-debug-overlay").forEach((overlay) => overlay.remove());
+    if (this.debugEnabled) this.renderDebugOverlays(pagesEl, this.currentPages, this.currentMeasuredHeights);
+  }
+  async saveEditedMarkdown() {
+    var _a;
+    if (!this.editMode || !this.dirty) return;
+    if (!this.file) {
+      new import_obsidian4.Notice("Open a sermon note first.");
+      return;
+    }
+    const pagesEl = (_a = this.rootEl) == null ? void 0 : _a.querySelector(".sp-v2-pages");
+    if (!pagesEl) return;
+    const markdown = this.markdownFromRenderedPages();
+    if (!markdown) return;
+    const restoreState = this.captureRestoreState();
+    await this.app.vault.modify(this.file, markdown);
+    new import_obsidian4.Notice("SermonPrint Engine V2 saved.");
+    await this.renderCurrentFile(restoreState);
+  }
+  captureRestoreState() {
+    var _a;
+    const pagesEl = (_a = this.rootEl) == null ? void 0 : _a.querySelector(".sp-v2-pages");
+    const scroller = this.rootEl;
+    if (!pagesEl || !scroller) return null;
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    const selectedBlock = range ? this.closestEditableBlock(range.startContainer) : null;
+    const pageEl = selectedBlock == null ? void 0 : selectedBlock.closest(".sp-page");
+    const visiblePage = this.visiblePageElement();
+    const targetPage = pageEl || visiblePage;
+    const blockIndex = selectedBlock ? this.blockIndexInPages(selectedBlock) : -1;
+    return {
+      scrollTop: scroller.scrollTop,
+      pageNumber: Number((targetPage == null ? void 0 : targetPage.dataset.page) || (visiblePage == null ? void 0 : visiblePage.dataset.page) || 1),
+      blockIndex,
+      tagName: (selectedBlock == null ? void 0 : selectedBlock.tagName.toLowerCase()) || "",
+      text: selectedBlock ? this.textFromElement(selectedBlock) : "",
+      textOffset: range && selectedBlock ? this.textOffsetWithin(selectedBlock, range) : 0
+    };
+  }
+  restorePosition(state) {
+    const scroller = this.rootEl;
+    if (!scroller) return;
+    scroller.scrollTop = state.scrollTop;
+    if (!this.editMode) {
+      this.scrollPageIntoView(state.pageNumber, state.scrollTop);
+      return;
+    }
+    const block = this.findClosestBlock(state);
+    if (!block) {
+      this.scrollPageIntoView(state.pageNumber, state.scrollTop);
+      return;
+    }
+    this.placeCaret(block, state.textOffset);
+    block.scrollIntoView({ block: "center" });
+  }
+  visiblePageElement() {
+    var _a;
+    const pages = Array.from(((_a = this.rootEl) == null ? void 0 : _a.querySelectorAll(".sp-page")) || []);
+    if (!this.rootEl || pages.length === 0) return null;
+    const rootTop = this.rootEl.getBoundingClientRect().top;
+    return pages.reduce((closest, page) => {
+      const currentDistance = Math.abs(page.getBoundingClientRect().top - rootTop);
+      const closestDistance = Math.abs(closest.getBoundingClientRect().top - rootTop);
+      return currentDistance < closestDistance ? page : closest;
+    }, pages[0]);
+  }
+  scrollPageIntoView(pageNumber, fallbackScrollTop) {
+    var _a;
+    const pageEl = (_a = this.rootEl) == null ? void 0 : _a.querySelector(`.sp-page[data-page="${pageNumber}"]`);
+    if (pageEl) pageEl.scrollIntoView({ block: "start" });
+    else if (this.rootEl) this.rootEl.scrollTop = fallbackScrollTop;
+  }
+  closestEditableBlock(node) {
+    const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    const block = el == null ? void 0 : el.closest("h1, h2, blockquote, p");
+    return (block == null ? void 0 : block.closest(".sp-page-content")) ? block : null;
+  }
+  blockIndexInPages(block) {
+    var _a;
+    const blocks = Array.from(((_a = this.rootEl) == null ? void 0 : _a.querySelectorAll(".sp-page-content > h1, .sp-page-content > h2, .sp-page-content > blockquote, .sp-page-content > p")) || []);
+    return blocks.indexOf(block);
+  }
+  findClosestBlock(state) {
+    var _a, _b;
+    const blocks = Array.from(((_a = this.rootEl) == null ? void 0 : _a.querySelectorAll(".sp-page-content > h1, .sp-page-content > h2, .sp-page-content > blockquote, .sp-page-content > p")) || []);
+    if (blocks.length === 0) return null;
+    const exactTextMatch = blocks.find((block) => block.tagName.toLowerCase() === state.tagName && this.textFromElement(block) === state.text);
+    if (exactTextMatch) return exactTextMatch;
+    const sameTagBlocks = blocks.filter((block) => block.tagName.toLowerCase() === state.tagName);
+    if (sameTagBlocks.length > 0 && state.blockIndex >= 0) {
+      return sameTagBlocks.reduce((closest, block) => {
+        return Math.abs(blocks.indexOf(block) - state.blockIndex) < Math.abs(blocks.indexOf(closest) - state.blockIndex) ? block : closest;
+      }, sameTagBlocks[0]);
+    }
+    if (state.blockIndex >= 0) return blocks[Math.min(state.blockIndex, blocks.length - 1)];
+    return ((_b = this.rootEl) == null ? void 0 : _b.querySelector(`.sp-page[data-page="${state.pageNumber}"] .sp-page-content > *`)) || blocks[0];
+  }
+  textOffsetWithin(block, range) {
+    const prefixRange = document.createRange();
+    prefixRange.selectNodeContents(block);
+    prefixRange.setEnd(range.startContainer, range.startOffset);
+    return prefixRange.toString().length;
+  }
+  placeCaret(block, textOffset) {
+    const selection = window.getSelection();
+    if (!selection) return;
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    let remaining = textOffset;
+    let target = null;
+    let offset = 0;
+    while (walker.nextNode()) {
+      const textNode = walker.currentNode;
+      if (remaining <= textNode.data.length) {
+        target = textNode;
+        offset = remaining;
+        break;
+      }
+      remaining -= textNode.data.length;
+    }
+    if (!target) {
+      target = block.lastChild instanceof Text ? block.lastChild : document.createTextNode("");
+      if (!target.parentNode) block.appendChild(target);
+      offset = target.data.length;
+    }
+    const range = document.createRange();
+    range.setStart(target, Math.min(offset, target.data.length));
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    block.focus();
+  }
+  markdownFromRenderedPages() {
+    var _a;
+    const pagesEl = (_a = this.rootEl) == null ? void 0 : _a.querySelector(".sp-v2-pages");
+    if (!pagesEl) return "";
+    const blocks = [];
+    pagesEl.querySelectorAll(".sp-page-content").forEach((contentEl) => {
+      Array.from(contentEl.children).forEach((child) => {
+        const el = child;
+        const text = this.textFromElement(el);
+        if (!text) return;
+        const tag = el.tagName.toLowerCase();
+        if (tag === "h1") blocks.push(`# ${text}`);
+        else if (tag === "h2") blocks.push(`## ${text}`);
+        else if (tag === "blockquote") blocks.push(text.split(/\n+/).map((line) => `> ${line.trim()}`).join("\n"));
+        else blocks.push(text);
+      });
+    });
+    return `${blocks.join("\n\n")}
+`;
+  }
+  textFromElement(el) {
+    return (el.innerText || el.textContent || "").replace(/\u00a0/g, " ").trim();
   }
   renderDebugOverlays(pagesEl, pages, measuredHeights) {
     pages.forEach((page) => {
@@ -1664,6 +1931,11 @@ var SermonPrintPlugin = class extends import_obsidian5.Plugin {
     this.addCommand({
       id: "sermonprint-edit-export",
       name: "Edit & Export",
+      callback: () => openManuscriptEngineV2(this)
+    });
+    this.addCommand({
+      id: "sermonprint-legacy-edit-export",
+      name: "Legacy Edit & Export",
       callback: async () => this.openManuscriptView()
     });
   }

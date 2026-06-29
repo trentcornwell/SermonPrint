@@ -534,6 +534,28 @@ body .sp-v2-toolbar {
   border-bottom: 1px solid rgba(0,0,0,.12);
 }
 
+body .sp-v2-toolbar button.is-active {
+  background: #fff3f3;
+  border-color: rgba(139,0,0,.45);
+  color: #8b0000;
+}
+
+body .sp-v2-toolbar button.is-hidden {
+  display: none;
+}
+
+body .sp-v2-dirty-indicator {
+  display: none;
+  color: #8b0000;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+body .sp-v2-dirty-indicator.is-visible {
+  display: inline-flex;
+}
+
 body .sp-v2-pages {
   display: flex;
   flex-direction: column;
@@ -576,6 +598,13 @@ body .sp-page-number {
   border: 1px solid rgba(139,0,0,.25);
   border-radius: 999px;
   padding: 2px 8px;
+}
+
+body .sp-page-content.is-editing {
+  outline: 2px solid rgba(139,0,0,.55);
+  outline-offset: 6px;
+  background: rgba(139,0,0,.035);
+  caret-color: #8b0000;
 }
 
 body .sp-debug-overlay {
