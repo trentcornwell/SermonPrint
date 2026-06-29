@@ -4,6 +4,7 @@ import { parseMarkdownToDocument } from "../engine/Parser";
 import { paginateDocument } from "../engine/Paginator";
 import { DEFAULT_PAGE_SETTINGS } from "../engine/Page";
 import { DomMeasureService } from "../engine/DomMeasure";
+import { estimateBlockHeight } from "../engine/Measure";
 import { renderPagesToHtml } from "../renderer/PageRenderer";
 import { blockToHtml } from "../renderer/BlockRenderer";
 
@@ -14,6 +15,7 @@ export class ManuscriptEditorV2View extends ItemView {
   file: TFile | null = null;
   rootEl: HTMLElement | null = null;
   measureService: DomMeasureService | null = null;
+  debugEnabled = false;
 
   constructor(leaf: WorkspaceLeaf, plugin: SermonPrintPlugin) {
     super(leaf);
@@ -36,6 +38,10 @@ export class ManuscriptEditorV2View extends ItemView {
     const toolbar = this.rootEl.createDiv({ cls: "sp-v2-toolbar" });
     toolbar.createEl("button", { text: "Refresh Pages" }).onclick = () => this.renderCurrentFile();
     toolbar.createEl("button", { text: "Back to Markdown" }).onclick = () => this.openMarkdownFile();
+    toolbar.createEl("button", { text: "Debug" }).onclick = async () => {
+      this.debugEnabled = !this.debugEnabled;
+      await this.renderCurrentFile();
+    };
 
     this.rootEl.createDiv({ cls: "sp-v2-pages" });
 
@@ -69,11 +75,32 @@ export class ManuscriptEditorV2View extends ItemView {
     const markdown = await this.app.vault.read(file);
     const document = parseMarkdownToDocument(markdown, file.basename);
     this.measureService?.clear();
-    const pages = this.measureService
-      ? paginateDocument(document, DEFAULT_PAGE_SETTINGS, (block, settings) => this.measureService!.measureBlock(block, settings))
+    const measuredHeights = this.measureService?.measureBlocks(document.blocks, DEFAULT_PAGE_SETTINGS);
+    const pages = measuredHeights
+      ? paginateDocument(document, DEFAULT_PAGE_SETTINGS, (block, settings) => measuredHeights.get(block.id) ?? estimateBlockHeight(block, settings))
       : paginateDocument(document, DEFAULT_PAGE_SETTINGS);
 
     pagesEl.innerHTML = renderPagesToHtml(pages, DEFAULT_PAGE_SETTINGS);
+    if (this.debugEnabled) this.renderDebugOverlays(pagesEl, pages, measuredHeights);
+  }
+
+  private renderDebugOverlays(pagesEl: HTMLElement, pages: ReturnType<typeof paginateDocument>, measuredHeights?: Map<string, number>): void {
+    pages.forEach((page) => {
+      const pageEl = pagesEl.querySelector(`.sp-page[data-page="${page.number}"]`) as HTMLElement | null;
+      if (!pageEl) return;
+
+      const overlay = pageEl.createDiv({ cls: "sp-debug-overlay" });
+      overlay.createDiv({ text: `printable: ${page.availableHeightPx.toFixed(2)}px` });
+      overlay.createDiv({ text: `used: ${page.usedHeightPx.toFixed(2)}px` });
+      overlay.createDiv({ text: `remaining: ${Math.max(0, page.availableHeightPx - page.usedHeightPx).toFixed(2)}px` });
+      overlay.createDiv({ text: `blocks: ${page.blocks.length}` });
+
+      const list = overlay.createEl("ul");
+      page.blocks.forEach((block) => {
+        const measured = measuredHeights?.get(block.id) ?? estimateBlockHeight(block, DEFAULT_PAGE_SETTINGS);
+        list.createEl("li", { text: `${block.id} | ${block.type} | ${measured.toFixed(2)}px` });
+      });
+    });
   }
 
   async openMarkdownFile(): Promise<void> {

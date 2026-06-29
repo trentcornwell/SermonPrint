@@ -738,6 +738,29 @@ body .sp-page-number {
   padding: 2px 8px;
 }
 
+body .sp-debug-overlay {
+  position: absolute;
+  left: .08in;
+  bottom: .08in;
+  z-index: 20;
+  max-width: calc(100% - .16in);
+  max-height: 42%;
+  overflow: auto;
+  background: rgba(255, 255, 255, .94);
+  border: 1px solid rgba(139, 0, 0, .35);
+  color: #111;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9px;
+  line-height: 1.35;
+  padding: 6px 8px;
+  pointer-events: none;
+}
+
+body .sp-debug-overlay ul {
+  margin: 4px 0 0;
+  padding-left: 14px;
+}
+
 body .sp-page-content h1 {
   font-size: 20pt;
   line-height: 1.08;
@@ -1417,21 +1440,29 @@ var DomMeasureService = class {
     this.rootEl.remove();
     this.cache.clear();
   }
-  measureBlock(block, settings) {
-    const key = this.cacheKey(block, settings);
+  measureBlocks(blocks, settings) {
+    const key = this.cacheKey(blocks, settings);
     const cached = this.cache.get(key);
-    if (cached) return cached.heightPx;
+    if (cached) return cached.heightsByBlockId;
     this.applyPageSettings(settings);
-    this.contentEl.innerHTML = this.renderBlockHtml(block);
-    const blockEl = this.contentEl.firstElementChild;
-    if (!blockEl) return 0;
-    const rect = blockEl.getBoundingClientRect();
-    const style = window.getComputedStyle(blockEl);
-    const marginTop = Number.parseFloat(style.marginTop) || 0;
-    const marginBottom = Number.parseFloat(style.marginBottom) || 0;
-    const heightPx = rect.height + marginTop + marginBottom;
-    this.cache.set(key, { heightPx });
-    return heightPx;
+    this.contentEl.innerHTML = blocks.map((block) => this.renderBlockHtml(block)).join("\n");
+    const contentTop = this.contentEl.getBoundingClientRect().top;
+    const heightsByBlockId = /* @__PURE__ */ new Map();
+    let previousBottom = contentTop;
+    blocks.forEach((block, index) => {
+      const blockEl = this.contentEl.children[index];
+      if (!blockEl) {
+        heightsByBlockId.set(block.id, 0);
+        return;
+      }
+      const blockRect = blockEl.getBoundingClientRect();
+      const blockBottom = blockRect.bottom - contentTop;
+      const effectiveHeight = Math.max(0, blockBottom - previousBottom);
+      heightsByBlockId.set(block.id, effectiveHeight);
+      previousBottom = blockBottom;
+    });
+    this.cache.set(key, { heightsByBlockId });
+    return heightsByBlockId;
   }
   applyPageSettings(settings) {
     this.pageEl.setAttribute("style", `
@@ -1440,13 +1471,17 @@ var DomMeasureService = class {
   padding: ${settings.marginTopIn}in ${settings.marginRightIn}in ${settings.marginBottomIn}in ${settings.marginLeftIn}in;
 `);
   }
-  cacheKey(block, settings) {
-    var _a;
+  cacheKey(blocks, settings) {
     return JSON.stringify({
-      id: block.id,
-      type: block.type,
-      text: block.text,
-      html: (_a = block.html) != null ? _a : "",
+      blocks: blocks.map((block) => {
+        var _a;
+        return {
+          id: block.id,
+          type: block.type,
+          text: block.text,
+          html: (_a = block.html) != null ? _a : ""
+        };
+      }),
       widthIn: settings.widthIn,
       heightIn: settings.heightIn,
       marginTopIn: settings.marginTopIn,
@@ -1516,6 +1551,7 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     this.file = null;
     this.rootEl = null;
     this.measureService = null;
+    this.debugEnabled = false;
     this.plugin = plugin;
   }
   getViewType() {
@@ -1531,6 +1567,10 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     const toolbar = this.rootEl.createDiv({ cls: "sp-v2-toolbar" });
     toolbar.createEl("button", { text: "Refresh Pages" }).onclick = () => this.renderCurrentFile();
     toolbar.createEl("button", { text: "Back to Markdown" }).onclick = () => this.openMarkdownFile();
+    toolbar.createEl("button", { text: "Debug" }).onclick = async () => {
+      this.debugEnabled = !this.debugEnabled;
+      await this.renderCurrentFile();
+    };
     this.rootEl.createDiv({ cls: "sp-v2-pages" });
     await this.renderCurrentFile();
   }
@@ -1545,7 +1585,7 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     await this.renderCurrentFile();
   }
   async renderCurrentFile() {
-    var _a, _b;
+    var _a, _b, _c;
     const pagesEl = (_a = this.rootEl) == null ? void 0 : _a.querySelector(".sp-v2-pages");
     if (!pagesEl) return;
     const active = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
@@ -1558,8 +1598,30 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     const markdown = await this.app.vault.read(file);
     const document2 = parseMarkdownToDocument(markdown, file.basename);
     (_b = this.measureService) == null ? void 0 : _b.clear();
-    const pages = this.measureService ? paginateDocument(document2, DEFAULT_PAGE_SETTINGS, (block, settings) => this.measureService.measureBlock(block, settings)) : paginateDocument(document2, DEFAULT_PAGE_SETTINGS);
+    const measuredHeights = (_c = this.measureService) == null ? void 0 : _c.measureBlocks(document2.blocks, DEFAULT_PAGE_SETTINGS);
+    const pages = measuredHeights ? paginateDocument(document2, DEFAULT_PAGE_SETTINGS, (block, settings) => {
+      var _a2;
+      return (_a2 = measuredHeights.get(block.id)) != null ? _a2 : estimateBlockHeight(block, settings);
+    }) : paginateDocument(document2, DEFAULT_PAGE_SETTINGS);
     pagesEl.innerHTML = renderPagesToHtml(pages, DEFAULT_PAGE_SETTINGS);
+    if (this.debugEnabled) this.renderDebugOverlays(pagesEl, pages, measuredHeights);
+  }
+  renderDebugOverlays(pagesEl, pages, measuredHeights) {
+    pages.forEach((page) => {
+      const pageEl = pagesEl.querySelector(`.sp-page[data-page="${page.number}"]`);
+      if (!pageEl) return;
+      const overlay = pageEl.createDiv({ cls: "sp-debug-overlay" });
+      overlay.createDiv({ text: `printable: ${page.availableHeightPx.toFixed(2)}px` });
+      overlay.createDiv({ text: `used: ${page.usedHeightPx.toFixed(2)}px` });
+      overlay.createDiv({ text: `remaining: ${Math.max(0, page.availableHeightPx - page.usedHeightPx).toFixed(2)}px` });
+      overlay.createDiv({ text: `blocks: ${page.blocks.length}` });
+      const list = overlay.createEl("ul");
+      page.blocks.forEach((block) => {
+        var _a;
+        const measured = (_a = measuredHeights == null ? void 0 : measuredHeights.get(block.id)) != null ? _a : estimateBlockHeight(block, DEFAULT_PAGE_SETTINGS);
+        list.createEl("li", { text: `${block.id} | ${block.type} | ${measured.toFixed(2)}px` });
+      });
+    });
   }
   async openMarkdownFile() {
     if (!this.file) return;

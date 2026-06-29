@@ -578,6 +578,29 @@ body .sp-page-number {
   padding: 2px 8px;
 }
 
+body .sp-debug-overlay {
+  position: absolute;
+  left: .08in;
+  bottom: .08in;
+  z-index: 20;
+  max-width: calc(100% - .16in);
+  max-height: 42%;
+  overflow: auto;
+  background: rgba(255, 255, 255, .94);
+  border: 1px solid rgba(139, 0, 0, .35);
+  color: #111;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9px;
+  line-height: 1.35;
+  padding: 6px 8px;
+  pointer-events: none;
+}
+
+body .sp-debug-overlay ul {
+  margin: 4px 0 0;
+  padding-left: 14px;
+}
+
 body .sp-page-content h1 {
   font-size: 20pt;
   line-height: 1.08;

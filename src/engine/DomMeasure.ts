@@ -4,7 +4,7 @@ import { PageSettings } from "./Page";
 export type RenderBlockHtml = (block: SermonBlock) => string;
 
 type MeasurementCacheEntry = {
-  heightPx: number;
+  heightsByBlockId: Map<string, number>;
 };
 
 export class DomMeasureService {
@@ -35,25 +35,35 @@ export class DomMeasureService {
     this.cache.clear();
   }
 
-  measureBlock(block: SermonBlock, settings: PageSettings): number {
-    const key = this.cacheKey(block, settings);
+  measureBlocks(blocks: SermonBlock[], settings: PageSettings): Map<string, number> {
+    const key = this.cacheKey(blocks, settings);
     const cached = this.cache.get(key);
-    if (cached) return cached.heightPx;
+    if (cached) return cached.heightsByBlockId;
 
     this.applyPageSettings(settings);
-    this.contentEl.innerHTML = this.renderBlockHtml(block);
+    this.contentEl.innerHTML = blocks.map((block) => this.renderBlockHtml(block)).join("\n");
 
-    const blockEl = this.contentEl.firstElementChild as HTMLElement | null;
-    if (!blockEl) return 0;
+    const contentTop = this.contentEl.getBoundingClientRect().top;
+    const heightsByBlockId = new Map<string, number>();
+    let previousBottom = contentTop;
 
-    const rect = blockEl.getBoundingClientRect();
-    const style = window.getComputedStyle(blockEl);
-    const marginTop = Number.parseFloat(style.marginTop) || 0;
-    const marginBottom = Number.parseFloat(style.marginBottom) || 0;
-    const heightPx = rect.height + marginTop + marginBottom;
+    blocks.forEach((block, index) => {
+      const blockEl = this.contentEl.children[index] as HTMLElement | undefined;
+      if (!blockEl) {
+        heightsByBlockId.set(block.id, 0);
+        return;
+      }
 
-    this.cache.set(key, { heightPx });
-    return heightPx;
+      const blockRect = blockEl.getBoundingClientRect();
+      const blockBottom = blockRect.bottom - contentTop;
+      const effectiveHeight = Math.max(0, blockBottom - previousBottom);
+
+      heightsByBlockId.set(block.id, effectiveHeight);
+      previousBottom = blockBottom;
+    });
+
+    this.cache.set(key, { heightsByBlockId });
+    return heightsByBlockId;
   }
 
   private applyPageSettings(settings: PageSettings): void {
@@ -64,12 +74,14 @@ export class DomMeasureService {
 `);
   }
 
-  private cacheKey(block: SermonBlock, settings: PageSettings): string {
+  private cacheKey(blocks: SermonBlock[], settings: PageSettings): string {
     return JSON.stringify({
-      id: block.id,
-      type: block.type,
-      text: block.text,
-      html: block.html ?? "",
+      blocks: blocks.map((block) => ({
+        id: block.id,
+        type: block.type,
+        text: block.text,
+        html: block.html ?? "",
+      })),
       widthIn: settings.widthIn,
       heightIn: settings.heightIn,
       marginTopIn: settings.marginTopIn,
