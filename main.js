@@ -1602,6 +1602,7 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     this.editButton = null;
     this.cancelEditButton = null;
     this.saveButton = null;
+    this.insertButtons = [];
     this.dirtyIndicatorEl = null;
     this.modeIndicatorEl = null;
     this.pageCountEl = null;
@@ -1638,6 +1639,19 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     this.saveButton = toolbar.createEl("button", { text: "Save" });
     this.saveButton.disabled = true;
     this.saveButton.onclick = () => this.saveEditedMarkdown();
+    this.insertButtons = [
+      toolbar.createEl("button", { text: "Heading", cls: "is-hidden" }),
+      toolbar.createEl("button", { text: "Main Point", cls: "is-hidden" }),
+      toolbar.createEl("button", { text: "Scripture", cls: "is-hidden" }),
+      toolbar.createEl("button", { text: "Transition", cls: "is-hidden" })
+    ];
+    this.insertButtons[0].onclick = () => this.insertBlockAtCaret("h2", "New Heading");
+    this.insertButtons[1].onclick = () => this.insertBlockAtCaret("h2", "Main Point");
+    this.insertButtons[2].onclick = () => this.insertBlockAtCaret("blockquote", "Scripture text...");
+    this.insertButtons[3].onclick = () => this.insertBlockAtCaret("p", "Transition:");
+    this.insertButtons.forEach((button) => {
+      button.onmousedown = (event) => event.preventDefault();
+    });
     this.dirtyIndicatorEl = toolbar.createSpan({ text: "\u25CF Unsaved", cls: "sp-v2-dirty-indicator" });
     this.modeIndicatorEl = toolbar.createSpan({ text: "Viewing", cls: "sp-v2-mode-indicator" });
     this.pageCountEl = toolbar.createSpan({ text: "0 pages", cls: "sp-v2-page-count" });
@@ -1715,6 +1729,7 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     if (this.editButton) this.editButton.toggleClass("is-active", this.editMode);
     if (this.cancelEditButton) this.cancelEditButton.toggleClass("is-hidden", !this.editMode);
     if (this.saveButton) this.saveButton.disabled = !this.editMode || !this.dirty;
+    this.insertButtons.forEach((button) => button.toggleClass("is-hidden", !this.editMode));
     if (this.dirtyIndicatorEl) this.dirtyIndicatorEl.toggleClass("is-visible", this.editMode && this.dirty);
     if (this.modeIndicatorEl) {
       this.modeIndicatorEl.setText(this.editMode ? this.dirty ? "Unsaved" : "Editing" : "Viewing");
@@ -1855,6 +1870,44 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
     const block = el == null ? void 0 : el.closest("h1, h2, blockquote, p");
     return (block == null ? void 0 : block.closest(".sp-page-content")) ? block : null;
+  }
+  closestPageContent(node) {
+    var _a;
+    const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    const contentEl = el == null ? void 0 : el.closest(".sp-page-content");
+    return contentEl && ((_a = this.rootEl) == null ? void 0 : _a.contains(contentEl)) ? contentEl : null;
+  }
+  currentEditableContent() {
+    var _a, _b;
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    const selectedContent = range ? this.closestPageContent(range.startContainer) : null;
+    if (selectedContent == null ? void 0 : selectedContent.isContentEditable) return selectedContent;
+    const visibleContent = (_a = this.visiblePageElement()) == null ? void 0 : _a.querySelector(".sp-page-content");
+    if (visibleContent == null ? void 0 : visibleContent.isContentEditable) return visibleContent;
+    return ((_b = this.rootEl) == null ? void 0 : _b.querySelector(".sp-page-content.is-editing")) || null;
+  }
+  insertBlockAtCaret(tagName, text) {
+    if (!this.editMode) return;
+    const contentEl = this.currentEditableContent();
+    if (!contentEl) return;
+    const block = document.createElement(tagName);
+    block.textContent = text;
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    const selectedContent = range ? this.closestPageContent(range.startContainer) : null;
+    const selectedBlock = range ? this.closestEditableBlock(range.startContainer) : null;
+    if (range && selectedContent === contentEl && (selectedBlock == null ? void 0 : selectedBlock.parentElement) === contentEl) {
+      selectedBlock.insertAdjacentElement("afterend", block);
+    } else if (range && selectedContent === contentEl) {
+      range.collapse(false);
+      range.insertNode(block);
+    } else {
+      contentEl.appendChild(block);
+    }
+    this.markDirty();
+    this.placeCaret(block, text.length);
+    block.scrollIntoView({ block: "nearest" });
   }
   blockIndexInPages(block) {
     var _a;
