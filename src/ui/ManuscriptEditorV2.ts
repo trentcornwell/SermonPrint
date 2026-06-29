@@ -7,6 +7,7 @@ import { DomMeasureService } from "../engine/DomMeasure";
 import { estimateBlockHeight } from "../engine/Measure";
 import { renderPagesToHtml } from "../renderer/PageRenderer";
 import { blockToHtml } from "../renderer/BlockRenderer";
+import type { ExportMode } from "../exporter";
 
 export const SERMONPRINT_V2_VIEW_TYPE = "sermonprint-manuscript-engine-v2";
 
@@ -71,8 +72,8 @@ export class ManuscriptEditorV2View extends ItemView {
     this.saveButton.onclick = () => this.saveEditedMarkdown();
     this.dirtyIndicatorEl = toolbar.createSpan({ text: "● Unsaved", cls: "sp-v2-dirty-indicator" });
     this.updateEditStateControls();
-    toolbar.createEl("button", { text: "Export PDF" }).onclick = () => this.plugin.exportWithMode("pdf");
-    toolbar.createEl("button", { text: "Export Booklet" }).onclick = () => this.plugin.exportWithMode("booklet");
+    toolbar.createEl("button", { text: "Export PDF" }).onclick = () => this.exportWithUnsavedGuard("pdf");
+    toolbar.createEl("button", { text: "Export Booklet" }).onclick = () => this.exportWithUnsavedGuard("booklet");
     const debugButton = toolbar.createEl("button", { text: "Debug" });
     debugButton.toggleClass("is-active", this.debugEnabled);
     debugButton.onclick = () => {
@@ -218,6 +219,34 @@ export class ManuscriptEditorV2View extends ItemView {
     await this.app.vault.modify(this.file, markdown);
     new Notice("SermonPrint Engine V2 saved.");
     await this.renderCurrentFile(restoreState);
+  }
+
+  private async saveEditedMarkdownForExport(): Promise<boolean> {
+    if (!this.file) {
+      new Notice("Open a sermon note first.");
+      return false;
+    }
+
+    const markdown = this.markdownFromRenderedPages();
+    if (!markdown) return false;
+
+    const restoreState = this.captureRestoreState();
+    await this.app.vault.modify(this.file, markdown);
+    new Notice("SermonPrint Engine V2 saved.");
+    await this.renderCurrentFile(restoreState);
+    return true;
+  }
+
+  private async exportWithUnsavedGuard(mode: ExportMode): Promise<void> {
+    if (this.hasUnsavedEdits()) {
+      const shouldSave = window.confirm("You have unsaved changes. Save before exporting?");
+      if (!shouldSave) return;
+
+      const saved = await this.saveEditedMarkdownForExport();
+      if (!saved) return;
+    }
+
+    await this.plugin.exportWithMode(mode);
   }
 
   private captureRestoreState(): RestoreState | null {
