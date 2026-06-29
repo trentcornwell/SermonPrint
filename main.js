@@ -1600,6 +1600,8 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
   async onOpen() {
     this.containerEl.empty();
     this.rootEl = this.containerEl.createDiv({ cls: "sp-v2-root" });
+    this.rootEl.tabIndex = -1;
+    this.rootEl.addEventListener("keydown", (event) => this.handleKeydown(event));
     this.measureService = new DomMeasureService(this.rootEl, blockToHtml);
     const toolbar = this.rootEl.createDiv({ cls: "sp-v2-toolbar" });
     toolbar.createEl("button", { text: "Refresh" }).onclick = () => this.refreshFromDiskWithWarning();
@@ -1720,6 +1722,13 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
     if (!pagesEl) return;
     pagesEl.querySelectorAll(".sp-debug-overlay").forEach((overlay) => overlay.remove());
     if (this.debugEnabled) this.renderDebugOverlays(pagesEl, this.currentPages, this.currentMeasuredHeights);
+  }
+  handleKeydown(event) {
+    if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") return;
+    if (!this.editMode) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.saveEditedMarkdown();
   }
   async saveEditedMarkdown() {
     var _a;
