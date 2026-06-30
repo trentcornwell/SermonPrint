@@ -5,7 +5,6 @@ import { DEFAULT_SETTINGS, SermonPrintSettings, SermonPrintSettingTab } from "./
 import { injectLayoutStyles, removeLayoutStyles } from "./styles";
 import { SermonPrintExporter, type ExportMode } from "./exporter";
 import { SermonPrintManuscriptView, VIEW_TYPE_SERMONPRINT_MANUSCRIPT } from "./manuscriptView";
-import { ManuscriptEditorV2View, SERMONPRINT_V2_VIEW_TYPE, openManuscriptEngineV2 } from "./ui/ManuscriptEditorV2";
 import { SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE, SermonPrintPrintPreviewView, openSermonPrintPrintPreview } from "./ui/PrintPreviewView";
 import { SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE, SermonPrintEditablePrintPreviewView, openSermonPrintEditablePrintPreview } from "./ui/EditablePrintPreviewView";
 
@@ -16,22 +15,11 @@ export default class SermonPrintPlugin extends Plugin {
   async onload(): Promise<void> {
     await this.loadSettings();
     this.exporter = new SermonPrintExporter(this, this.settings);
-    this.addCommand({
-      id: "sermonprint-engine-v2",
-      name: "Engine V2",
-      callback: () => openManuscriptEngineV2(this),
-    });
-
     this.addSettingTab(new SermonPrintSettingTab(this.app, this));
 
     this.registerView(
       VIEW_TYPE_SERMONPRINT_MANUSCRIPT,
       (leaf: WorkspaceLeaf) => new SermonPrintManuscriptView(leaf, this)
-    );
-
-    this.registerView(
-      SERMONPRINT_V2_VIEW_TYPE,
-      (leaf: WorkspaceLeaf) => new ManuscriptEditorV2View(leaf, this)
     );
 
     this.registerView(
@@ -48,19 +36,13 @@ export default class SermonPrintPlugin extends Plugin {
 
     this.addCommand({
       id: "sermonprint-edit-export",
-      name: "Edit & Export",
+      name: "SermonPrint: Legacy Edit & Export",
       callback: async () => this.openManuscriptView()
     });
 
     this.addCommand({
-      id: "sermonprint-compare-preview-pdf-pagination",
-      name: "Compare Preview and PDF Pagination",
-      callback: async () => this.comparePreviewAndPdfPagination()
-    });
-
-    this.addCommand({
       id: "sermonprint-print-preview",
-      name: "Print Preview",
+      name: "SermonPrint: Print Preview",
       callback: async () => openSermonPrintPrintPreview(this)
     });
 
@@ -77,6 +59,10 @@ export default class SermonPrintPlugin extends Plugin {
 
   async exportHtmlToPdf(html: string, basename: string, outputPath?: string): Promise<string | null> {
     return this.exporter.exportHtml(html, basename, outputPath);
+  }
+
+  async exportHtmlToBooklet(html: string, basename: string, outputPath: string): Promise<string | null> {
+    return this.exporter.exportHtmlBooklet(html, basename, outputPath);
   }
 
   async openManuscriptView(): Promise<void> {

@@ -31,8 +31,16 @@ export class SermonPrintEditablePrintPreviewView extends ItemView {
 
     toolbar.createEl("button", { text: "Save" }).onclick = () => this.saveMarkdown();
     toolbar.createEl("button", { text: "Refresh from Markdown" }).onclick = () => this.refreshFromMarkdown();
-    toolbar.createEl("button", { text: "Export PDF" }).onclick = () => this.exportPdf();
     toolbar.createEl("button", { text: "Back to Markdown" }).onclick = () => this.openMarkdownFile();
+    toolbar.createEl("button", { text: "Export 5.5 x 8.5 PDF" }).onclick = () => this.exportPdf();
+    toolbar.createEl("button", { text: "Export Booklet PDF" }).onclick = () => this.exportBooklet();
+    toolbar.createEl("button", { text: "Bold" }).onclick = () => this.execCommand("bold");
+    toolbar.createEl("button", { text: "Italic" }).onclick = () => this.execCommand("italic");
+    toolbar.createEl("button", { text: "H1" }).onclick = () => this.formatCurrentBlock("h1");
+    toolbar.createEl("button", { text: "H2" }).onclick = () => this.formatCurrentBlock("h2");
+    toolbar.createEl("button", { text: "H3" }).onclick = () => this.formatCurrentBlock("h3");
+    toolbar.createEl("button", { text: "Scripture" }).onclick = () => this.formatCurrentBlock("blockquote");
+    toolbar.createEl("button", { text: "Insert Sermon Block" }).onclick = () => this.insertSermonBlock();
 
     const shell = root.createDiv({ cls: "sp-print-preview-shell" });
     this.iframeEl = shell.createEl("iframe", {
@@ -111,11 +119,117 @@ export class SermonPrintEditablePrintPreviewView extends ItemView {
       return;
     }
 
-    const outputPath = await this.choosePdfPath();
+    const outputPath = await this.choosePdfPath(`${this.file.basename} SermonPrint.pdf`);
     if (!outputPath) return;
 
     const html = this.currentDisplayedHtml();
     await this.plugin.exportHtmlToPdf(html, this.file.basename, outputPath);
+  }
+
+  private async exportBooklet(): Promise<void> {
+    if (!this.file) {
+      new Notice("Open a sermon note first.");
+      return;
+    }
+
+    const outputPath = await this.choosePdfPath(`${this.file.basename} SermonPrint Booklet.pdf`);
+    if (!outputPath) return;
+
+    const html = this.currentDisplayedHtml();
+    await this.plugin.exportHtmlToBooklet(html, this.file.basename, outputPath);
+  }
+
+  private execCommand(command: "bold" | "italic"): void {
+    const doc = this.iframeEl?.contentDocument;
+    const win = this.iframeEl?.contentWindow;
+    if (!doc || !win) return;
+
+    win.focus();
+    doc.execCommand(command);
+  }
+
+  private formatCurrentBlock(tagName: "h1" | "h2" | "h3" | "blockquote"): void {
+    const doc = this.iframeEl?.contentDocument;
+    const selection = this.iframeEl?.contentWindow?.getSelection();
+    if (!doc || !selection || selection.rangeCount === 0) return;
+
+    const block = this.currentEditableBlock(selection.anchorNode);
+    if (!block) return;
+
+    const next = doc.createElement(tagName);
+    next.innerHTML = block.innerHTML;
+    this.copyEditableMetadata(block, next);
+    block.replaceWith(next);
+    this.placeCaretAtEnd(next);
+  }
+
+  private insertSermonBlock(): void {
+    const choice = window.prompt("Insert sermon block: heading, main point, scripture, transition", "main point");
+    if (!choice) return;
+
+    const normalized = choice.trim().toLowerCase();
+    if (normalized === "heading") {
+      this.insertBlock("h2", "New Heading");
+      return;
+    }
+    if (normalized === "scripture") {
+      this.insertBlock("blockquote", "Scripture text...");
+      return;
+    }
+    if (normalized === "transition") {
+      this.insertBlock("p", "Transition:");
+      return;
+    }
+
+    this.insertBlock("h2", "Main Point");
+  }
+
+  private insertBlock(tagName: "h2" | "blockquote" | "p", text: string): void {
+    const doc = this.iframeEl?.contentDocument;
+    const selection = this.iframeEl?.contentWindow?.getSelection();
+    if (!doc) return;
+
+    const block = doc.createElement(tagName);
+    block.textContent = text;
+
+    const current = selection?.anchorNode ? this.currentEditableBlock(selection.anchorNode) : null;
+    if (current) {
+      current.after(block);
+    } else {
+      doc.querySelector(".sp-print-page-content")?.appendChild(block);
+    }
+
+    this.placeCaretAtEnd(block);
+  }
+
+  private currentEditableBlock(node: Node | null): HTMLElement | null {
+    if (!node) return null;
+    const element = node.nodeType === Node.ELEMENT_NODE ? node as HTMLElement : node.parentElement;
+    const block = element?.closest("h1, h2, h3, p, blockquote, li") as HTMLElement | null;
+    if (!block?.closest(".sp-print-page-content")) return null;
+    return block;
+  }
+
+  private copyEditableMetadata(from: HTMLElement, to: HTMLElement): void {
+    from.getAttributeNames().forEach((name) => {
+      if (name === "contenteditable" || name === "spellcheck") return;
+      const value = from.getAttribute(name);
+      if (value !== null) to.setAttribute(name, value);
+    });
+  }
+
+  private placeCaretAtEnd(element: HTMLElement): void {
+    const doc = this.iframeEl?.contentDocument;
+    const win = this.iframeEl?.contentWindow;
+    if (!doc || !win) return;
+
+    const range = doc.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+    const selection = win.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    win.focus();
   }
 
   private currentDisplayedHtml(): string {
@@ -196,7 +310,7 @@ export class SermonPrintEditablePrintPreviewView extends ItemView {
     await this.app.workspace.openLinkText(this.file.path, "", false);
   }
 
-  private async choosePdfPath(): Promise<string | null> {
+  private async choosePdfPath(defaultFilename: string): Promise<string | null> {
     if (!this.file) return null;
 
     const electron = (window as any).require?.("electron");
@@ -211,7 +325,7 @@ export class SermonPrintEditablePrintPreviewView extends ItemView {
 
     const options = {
       title: "Save SermonPrint PDF",
-      defaultPath: `${this.file.basename} SermonPrint.pdf`,
+      defaultPath: defaultFilename,
       filters: [{ name: "PDF", extensions: ["pdf"] }],
     };
 

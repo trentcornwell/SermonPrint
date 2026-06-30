@@ -60,6 +60,44 @@ export class SermonPrintExporter {
     }
   }
 
+  async exportHtmlBooklet(html: string, basename: string, outputPath: string): Promise<string | null> {
+    const vaultPath = this.getVaultPath();
+    if (!vaultPath) {
+      new Notice("Could not find vault path.");
+      return null;
+    }
+
+    const pluginDir = path.join(vaultPath, this.plugin.manifest.dir ?? ".obsidian/plugins/vision-sermon-toolkit");
+    const exportFolder = path.dirname(outputPath);
+    fs.mkdirSync(exportFolder, { recursive: true });
+    const baseName = path.basename(outputPath, ".pdf");
+    const intermediatePdf = path.join(exportFolder, `${baseName}.sermonprint-source.pdf`);
+
+    try {
+      new Notice("Creating SermonPrint booklet...");
+      const pdfPath = await this.exportHtml(html, basename, intermediatePdf);
+      if (!pdfPath) return null;
+
+      await createBooklet(pluginDir, pdfPath, outputPath);
+      await this.waitForValidPdf(outputPath);
+
+      new Notice(`SermonPrint booklet saved: ${outputPath}`);
+      if (this.settings.openAfterExport) await this.tryOpenFile(outputPath);
+      return outputPath;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("SermonPrint booklet export failed", error);
+      new Notice(`SermonPrint booklet export failed: ${message}`);
+      return null;
+    } finally {
+      try {
+        if (fs.existsSync(intermediatePdf)) fs.unlinkSync(intermediatePdf);
+      } catch (error) {
+        console.warn("SermonPrint could not remove temporary booklet source PDF.", error);
+      }
+    }
+  }
+
   async exportCurrentNote(mode: ExportMode): Promise<void> {
     const file = this.plugin.app.workspace.getActiveFile();
 
