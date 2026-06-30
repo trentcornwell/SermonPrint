@@ -713,57 +713,75 @@ function paginationScript(): string {
     return paragraph;
   }
 
-  function characterCount(block) {
-    return textPositions(block).length;
+  function cloneForPlacement(block) {
+    return block.cloneNode(true);
   }
 
-  function splitParagraphAcrossPages(block, state) {
-    var remaining = block.cloneNode(true);
-    var partIndex = 0;
+  function paragraphWasSplit(block) {
+    return block.dataset.wasSplit === "true";
+  }
 
-    while (characterCount(remaining) > 0) {
-      var paragraph = remaining.cloneNode(true);
-      markContinuation(paragraph, block, partIndex);
-      state.current.content.appendChild(paragraph);
+  function markParagraphSplit(block) {
+    block.dataset.wasSplit = "true";
+  }
 
-      if (!pageOverflows(state.current.content)) {
-        return;
-      }
+  function splitParagraphOnce(block, state) {
+    var paragraph = cloneForPlacement(block);
+    state.current.content.appendChild(paragraph);
 
-      var measurement = renderedLines(paragraph);
-      var lines = measurement.lines;
-      var positions = measurement.positions;
-      var bottom = lineBottomLimit(paragraph, state.current.content);
-      var fittingLines = lines.filter(function (line) {
-        return line.bottom <= bottom;
-      });
-
-      if (!fittingLines.length) {
-        state.current.content.removeChild(paragraph);
-
-        if (!pageHasContent(state.current.content)) {
-          paragraph = remaining.cloneNode(true);
-          markContinuation(paragraph, block, partIndex);
-          state.current.content.appendChild(paragraph);
-          warnOversized(block);
-          return;
-        }
-
-        state.nextPage();
-        continue;
-      }
-
-      var splitOffset = fittingLines[fittingLines.length - 1].end;
-      if (splitOffset >= positions.length) return;
-
-      var firstSegment = paragraphSegment(block, paragraph, positions, 0, splitOffset, partIndex);
-      var nextSegment = paragraphSegment(block, paragraph, positions, splitOffset, positions.length, partIndex + 1);
-
-      state.current.content.replaceChild(firstSegment, paragraph);
-      remaining = nextSegment;
-      partIndex += 1;
-      state.nextPage();
+    if (!pageOverflows(state.current.content)) {
+      return null;
     }
+
+    var measurement = renderedLines(paragraph);
+    var lines = measurement.lines;
+    var positions = measurement.positions;
+    var bottom = lineBottomLimit(paragraph, state.current.content);
+    var fittingLines = lines.filter(function (line) {
+      return line.bottom <= bottom;
+    });
+
+    if (!fittingLines.length) {
+      state.current.content.removeChild(paragraph);
+
+      if (!pageHasContent(state.current.content)) {
+        state.current.content.appendChild(paragraph);
+        warnOversized(block);
+        return null;
+      }
+
+      state.nextPage();
+      return block;
+    }
+
+    var splitOffset = fittingLines[fittingLines.length - 1].end;
+    if (splitOffset >= positions.length) return null;
+
+    var partIndex = Number(block.dataset.spContinuationPart || "1") - 1;
+    var firstSegment = paragraphSegment(block, paragraph, positions, 0, splitOffset, partIndex);
+    var nextSegment = paragraphSegment(block, paragraph, positions, splitOffset, positions.length, partIndex + 1);
+
+    markParagraphSplit(block);
+    nextSegment.dataset.wasSplit = "true";
+    state.current.content.replaceChild(firstSegment, paragraph);
+    state.nextPage();
+    return nextSegment;
+  }
+
+  function placeParagraph(block, state) {
+    if (paragraphWasSplit(block)) {
+      var clone = cloneForPlacement(block);
+      state.current.content.appendChild(clone);
+      if (pageOverflows(state.current.content) && state.current.content.children.length > 1) {
+        state.current.content.removeChild(clone);
+        state.nextPage();
+        state.current.content.appendChild(clone);
+      }
+      if (pageOverflows(state.current.content)) warnOversized(block);
+      return null;
+    }
+
+    return splitParagraphOnce(block, state);
   }
 
   function appendKeepTogetherBlock(block, state) {
@@ -831,26 +849,28 @@ function paginationScript(): string {
       }
     };
 
-    blocks.forEach(function (block, index) {
+    for (var index = 0; index < blocks.length; index += 1) {
+      var block = blocks[index];
       var nextBlock = blocks[index + 1] || null;
 
       if (isHeading(block)) {
         placeHeading(block, nextBlock, state);
-        return;
+        continue;
       }
 
       if (isParagraph(block)) {
-        splitParagraphAcrossPages(block, state);
-        return;
+        var remainder = placeParagraph(block, state);
+        if (remainder) blocks.splice(index + 1, 0, remainder);
+        continue;
       }
 
       if (isKeepTogetherBlock(block)) {
         appendKeepTogetherBlock(block, state);
-        return;
+        continue;
       }
 
       appendKeepTogetherBlock(block, state);
-    });
+    }
   }
 
   window.SermonPrintPaginator = { paginate: paginatePrintPreview };

@@ -7,6 +7,7 @@ import { SermonPrintExporter, type ExportMode } from "./exporter";
 import { SermonPrintManuscriptView, VIEW_TYPE_SERMONPRINT_MANUSCRIPT } from "./manuscriptView";
 import { ManuscriptEditorV2View, SERMONPRINT_V2_VIEW_TYPE, openManuscriptEngineV2 } from "./ui/ManuscriptEditorV2";
 import { SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE, SermonPrintPrintPreviewView, openSermonPrintPrintPreview } from "./ui/PrintPreviewView";
+import { SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE, SermonPrintEditablePrintPreviewView, openSermonPrintEditablePrintPreview } from "./ui/EditablePrintPreviewView";
 
 export default class SermonPrintPlugin extends Plugin {
   settings: SermonPrintSettings;
@@ -38,6 +39,11 @@ export default class SermonPrintPlugin extends Plugin {
       (leaf: WorkspaceLeaf) => new SermonPrintPrintPreviewView(leaf, this)
     );
 
+    this.registerView(
+      SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE,
+      (leaf: WorkspaceLeaf) => new SermonPrintEditablePrintPreviewView(leaf, this)
+    );
+
     this.refreshLayoutStyles();
 
     this.addCommand({
@@ -56,6 +62,12 @@ export default class SermonPrintPlugin extends Plugin {
       id: "sermonprint-print-preview",
       name: "Print Preview",
       callback: async () => openSermonPrintPrintPreview(this)
+    });
+
+    this.addCommand({
+      id: "sermonprint-editable-print-preview",
+      name: "SermonPrint: Editable Print Preview",
+      callback: async () => openSermonPrintEditablePrintPreview(this)
     });
   }
 
@@ -130,6 +142,7 @@ export default class SermonPrintPlugin extends Plugin {
     removeLayoutStyles();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_SERMONPRINT_MANUSCRIPT);
     this.app.workspace.detachLeavesOfType(SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE);
+    this.app.workspace.detachLeavesOfType(SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE);
   }
 
   refreshLayoutStyles(): void {

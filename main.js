@@ -32,7 +32,7 @@ __export(main_exports, {
   default: () => SermonPrintPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var fs3 = __toESM(require("fs"));
 var path4 = __toESM(require("path"));
 
@@ -737,57 +737,75 @@ function paginationScript() {
     return paragraph;
   }
 
-  function characterCount(block) {
-    return textPositions(block).length;
+  function cloneForPlacement(block) {
+    return block.cloneNode(true);
   }
 
-  function splitParagraphAcrossPages(block, state) {
-    var remaining = block.cloneNode(true);
-    var partIndex = 0;
+  function paragraphWasSplit(block) {
+    return block.dataset.wasSplit === "true";
+  }
 
-    while (characterCount(remaining) > 0) {
-      var paragraph = remaining.cloneNode(true);
-      markContinuation(paragraph, block, partIndex);
-      state.current.content.appendChild(paragraph);
+  function markParagraphSplit(block) {
+    block.dataset.wasSplit = "true";
+  }
 
-      if (!pageOverflows(state.current.content)) {
-        return;
-      }
+  function splitParagraphOnce(block, state) {
+    var paragraph = cloneForPlacement(block);
+    state.current.content.appendChild(paragraph);
 
-      var measurement = renderedLines(paragraph);
-      var lines = measurement.lines;
-      var positions = measurement.positions;
-      var bottom = lineBottomLimit(paragraph, state.current.content);
-      var fittingLines = lines.filter(function (line) {
-        return line.bottom <= bottom;
-      });
-
-      if (!fittingLines.length) {
-        state.current.content.removeChild(paragraph);
-
-        if (!pageHasContent(state.current.content)) {
-          paragraph = remaining.cloneNode(true);
-          markContinuation(paragraph, block, partIndex);
-          state.current.content.appendChild(paragraph);
-          warnOversized(block);
-          return;
-        }
-
-        state.nextPage();
-        continue;
-      }
-
-      var splitOffset = fittingLines[fittingLines.length - 1].end;
-      if (splitOffset >= positions.length) return;
-
-      var firstSegment = paragraphSegment(block, paragraph, positions, 0, splitOffset, partIndex);
-      var nextSegment = paragraphSegment(block, paragraph, positions, splitOffset, positions.length, partIndex + 1);
-
-      state.current.content.replaceChild(firstSegment, paragraph);
-      remaining = nextSegment;
-      partIndex += 1;
-      state.nextPage();
+    if (!pageOverflows(state.current.content)) {
+      return null;
     }
+
+    var measurement = renderedLines(paragraph);
+    var lines = measurement.lines;
+    var positions = measurement.positions;
+    var bottom = lineBottomLimit(paragraph, state.current.content);
+    var fittingLines = lines.filter(function (line) {
+      return line.bottom <= bottom;
+    });
+
+    if (!fittingLines.length) {
+      state.current.content.removeChild(paragraph);
+
+      if (!pageHasContent(state.current.content)) {
+        state.current.content.appendChild(paragraph);
+        warnOversized(block);
+        return null;
+      }
+
+      state.nextPage();
+      return block;
+    }
+
+    var splitOffset = fittingLines[fittingLines.length - 1].end;
+    if (splitOffset >= positions.length) return null;
+
+    var partIndex = Number(block.dataset.spContinuationPart || "1") - 1;
+    var firstSegment = paragraphSegment(block, paragraph, positions, 0, splitOffset, partIndex);
+    var nextSegment = paragraphSegment(block, paragraph, positions, splitOffset, positions.length, partIndex + 1);
+
+    markParagraphSplit(block);
+    nextSegment.dataset.wasSplit = "true";
+    state.current.content.replaceChild(firstSegment, paragraph);
+    state.nextPage();
+    return nextSegment;
+  }
+
+  function placeParagraph(block, state) {
+    if (paragraphWasSplit(block)) {
+      var clone = cloneForPlacement(block);
+      state.current.content.appendChild(clone);
+      if (pageOverflows(state.current.content) && state.current.content.children.length > 1) {
+        state.current.content.removeChild(clone);
+        state.nextPage();
+        state.current.content.appendChild(clone);
+      }
+      if (pageOverflows(state.current.content)) warnOversized(block);
+      return null;
+    }
+
+    return splitParagraphOnce(block, state);
   }
 
   function appendKeepTogetherBlock(block, state) {
@@ -855,26 +873,28 @@ function paginationScript() {
       }
     };
 
-    blocks.forEach(function (block, index) {
+    for (var index = 0; index < blocks.length; index += 1) {
+      var block = blocks[index];
       var nextBlock = blocks[index + 1] || null;
 
       if (isHeading(block)) {
         placeHeading(block, nextBlock, state);
-        return;
+        continue;
       }
 
       if (isParagraph(block)) {
-        splitParagraphAcrossPages(block, state);
-        return;
+        var remainder = placeParagraph(block, state);
+        if (remainder) blocks.splice(index + 1, 0, remainder);
+        continue;
       }
 
       if (isKeepTogetherBlock(block)) {
         appendKeepTogetherBlock(block, state);
-        return;
+        continue;
       }
 
       appendKeepTogetherBlock(block, state);
-    });
+    }
   }
 
   window.SermonPrintPaginator = { paginate: paginatePrintPreview };
@@ -2696,8 +2716,207 @@ async function openSermonPrintPrintPreview(plugin) {
   await view.setFile(file);
 }
 
+// src/ui/EditablePrintPreviewView.ts
+var import_obsidian6 = require("obsidian");
+var SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE = "sermonprint-editable-print-preview";
+var SermonPrintEditablePrintPreviewView = class extends import_obsidian6.ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.file = null;
+    this.iframeEl = null;
+    this.lastMarkdown = "";
+    this.plugin = plugin;
+  }
+  getViewType() {
+    return SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE;
+  }
+  getDisplayText() {
+    return "SermonPrint Editable Print Preview";
+  }
+  async onOpen() {
+    this.containerEl.empty();
+    const root = this.containerEl.createDiv({ cls: "sp-print-preview-root" });
+    const toolbar = root.createDiv({ cls: "sp-print-preview-toolbar" });
+    toolbar.createEl("button", { text: "Save" }).onclick = () => this.saveMarkdown();
+    toolbar.createEl("button", { text: "Refresh from Markdown" }).onclick = () => this.refreshFromMarkdown();
+    toolbar.createEl("button", { text: "Export PDF" }).onclick = () => this.exportPdf();
+    toolbar.createEl("button", { text: "Back to Markdown" }).onclick = () => this.openMarkdownFile();
+    const shell = root.createDiv({ cls: "sp-print-preview-shell" });
+    this.iframeEl = shell.createEl("iframe", {
+      cls: "sp-print-preview-frame",
+      attr: { title: "SermonPrint Editable Print Preview" }
+    });
+    await this.loadCurrentFile();
+  }
+  async setFile(file) {
+    this.file = file;
+    await this.loadCurrentFile();
+  }
+  async loadCurrentFile() {
+    const active = this.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView);
+    const file = this.file || (active == null ? void 0 : active.file);
+    if (!file) {
+      new import_obsidian6.Notice("Open a sermon note first.");
+      return;
+    }
+    this.file = file;
+    this.lastMarkdown = await this.app.vault.read(file);
+    this.renderMarkdown(this.lastMarkdown);
+  }
+  renderMarkdown(markdown) {
+    var _a;
+    if (!this.iframeEl) return;
+    this.iframeEl.onload = () => this.enablePageEditing();
+    this.iframeEl.srcdoc = buildPaginatedManuscriptHtml(markdown, this.plugin.settings, ((_a = this.file) == null ? void 0 : _a.basename) || "SermonPrint");
+  }
+  enablePageEditing() {
+    var _a;
+    const doc = (_a = this.iframeEl) == null ? void 0 : _a.contentDocument;
+    if (!doc) return;
+    doc.querySelectorAll(".sp-print-page-content").forEach((pageContent) => {
+      pageContent.contentEditable = "true";
+      pageContent.spellcheck = true;
+    });
+    doc.querySelectorAll(".sp-print-page-label, .sp-print-source").forEach((el) => {
+      el.contentEditable = "false";
+    });
+  }
+  async refreshFromMarkdown() {
+    if (!this.file) {
+      new import_obsidian6.Notice("Open a sermon note first.");
+      return;
+    }
+    this.lastMarkdown = await this.app.vault.read(this.file);
+    this.renderMarkdown(this.lastMarkdown);
+  }
+  async saveMarkdown() {
+    if (!this.file) {
+      new import_obsidian6.Notice("Open a sermon note first.");
+      return;
+    }
+    const markdown = this.currentPagesToMarkdown();
+    await this.app.vault.modify(this.file, markdown);
+    this.lastMarkdown = markdown;
+    new import_obsidian6.Notice("SermonPrint editable preview saved.");
+  }
+  async exportPdf() {
+    if (!this.file) {
+      new import_obsidian6.Notice("Open a sermon note first.");
+      return;
+    }
+    const outputPath = await this.choosePdfPath();
+    if (!outputPath) return;
+    const html = this.currentDisplayedHtml();
+    await this.plugin.exportHtmlToPdf(html, this.file.basename, outputPath);
+  }
+  currentDisplayedHtml() {
+    var _a;
+    const doc = (_a = this.iframeEl) == null ? void 0 : _a.contentDocument;
+    if (!doc) return buildPaginatedManuscriptHtml("", this.plugin.settings, "SermonPrint");
+    const clone = doc.documentElement.cloneNode(true);
+    clone.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"));
+    clone.querySelectorAll(".sp-print-page-content").forEach((el) => {
+      el.removeAttribute("spellcheck");
+    });
+    return `<!doctype html>
+${clone.outerHTML}`;
+  }
+  currentPagesToMarkdown() {
+    var _a;
+    const doc = (_a = this.iframeEl) == null ? void 0 : _a.contentDocument;
+    if (!doc) return "";
+    const blocks = Array.from(doc.querySelectorAll(".sp-print-page-content > *"));
+    const markdownBlocks = [];
+    const seenContinuationIds = /* @__PURE__ */ new Set();
+    blocks.forEach((block) => {
+      var _a2;
+      const continuationOf = block.dataset.spContinuationOf;
+      if (continuationOf) {
+        const last = (_a2 = markdownBlocks.pop()) != null ? _a2 : "";
+        markdownBlocks.push(`${last}${this.blockText(block)}`);
+        seenContinuationIds.add(continuationOf);
+        return;
+      }
+      if (block.dataset.spBlockId && seenContinuationIds.has(block.dataset.spBlockId)) return;
+      const markdown = this.blockToMarkdown(block);
+      if (markdown) markdownBlocks.push(markdown);
+    });
+    return markdownBlocks.join("\n\n").trimEnd() + "\n";
+  }
+  blockToMarkdown(block) {
+    const tag = block.tagName.toLowerCase();
+    if (tag === "h1") return `# ${this.blockText(block)}`;
+    if (tag === "h2") return `## ${this.blockText(block)}`;
+    if (tag === "h3") return `### ${this.blockText(block)}`;
+    if (tag === "blockquote") return this.blockText(block).split("\n").map((line) => `> ${line}`).join("\n");
+    if (tag === "ul") return Array.from(block.querySelectorAll(":scope > li")).map((li) => this.listItemToMarkdown(li, false)).join("\n");
+    if (tag === "ol") return Array.from(block.querySelectorAll(":scope > li")).map((li, index) => `${index + 1}. ${this.listItemText(li)}`).join("\n");
+    if (tag === "hr") return "---";
+    if (block.classList.contains("sp-blank-line")) return "";
+    if (tag === "p") return this.blockText(block);
+    return this.blockText(block);
+  }
+  listItemToMarkdown(item, ordered) {
+    if (ordered) return this.listItemText(item);
+    const checkbox = item.querySelector("input[type='checkbox']");
+    if (checkbox) return `- [${checkbox.checked ? "x" : " "}] ${this.listItemText(item)}`;
+    return `- ${this.listItemText(item)}`;
+  }
+  listItemText(item) {
+    const clone = item.cloneNode(true);
+    clone.querySelectorAll("input[type='checkbox']").forEach((input) => input.remove());
+    return this.blockText(clone);
+  }
+  blockText(block) {
+    return block.innerText.replace(/\u00a0/g, " ").replace(/[ \t]+\n/g, "\n").trim();
+  }
+  async openMarkdownFile() {
+    if (!this.file) return;
+    await this.app.workspace.openLinkText(this.file.path, "", false);
+  }
+  async choosePdfPath() {
+    var _a, _b, _c, _d, _e;
+    if (!this.file) return null;
+    const electron = (_a = window.require) == null ? void 0 : _a.call(window, "electron");
+    const remote = electron == null ? void 0 : electron.remote;
+    const dialog = (_b = remote == null ? void 0 : remote.dialog) != null ? _b : electron == null ? void 0 : electron.dialog;
+    const currentWindow = (_c = remote == null ? void 0 : remote.getCurrentWindow) == null ? void 0 : _c.call(remote);
+    if (!(dialog == null ? void 0 : dialog.showSaveDialog) && !(dialog == null ? void 0 : dialog.showSaveDialogSync)) {
+      new import_obsidian6.Notice("SermonPrint could not open a save dialog in this Obsidian window.");
+      return null;
+    }
+    const options = {
+      title: "Save SermonPrint PDF",
+      defaultPath: `${this.file.basename} SermonPrint.pdf`,
+      filters: [{ name: "PDF", extensions: ["pdf"] }]
+    };
+    if (dialog.showSaveDialog) {
+      const result = currentWindow ? await dialog.showSaveDialog(currentWindow, options) : await dialog.showSaveDialog(options);
+      return result.canceled ? null : this.ensurePdfExtension(result.filePath);
+    }
+    const selectedPath = currentWindow ? (_d = dialog.showSaveDialogSync(currentWindow, options)) != null ? _d : null : (_e = dialog.showSaveDialogSync(options)) != null ? _e : null;
+    return this.ensurePdfExtension(selectedPath);
+  }
+  ensurePdfExtension(filePath) {
+    if (!filePath) return null;
+    return filePath.toLowerCase().endsWith(".pdf") ? filePath : `${filePath}.pdf`;
+  }
+};
+async function openSermonPrintEditablePrintPreview(plugin) {
+  const active = plugin.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView);
+  const file = active == null ? void 0 : active.file;
+  if (!file) {
+    new import_obsidian6.Notice("Open a sermon note first.");
+    return;
+  }
+  const leaf = plugin.app.workspace.getLeaf("tab");
+  await leaf.setViewState({ type: SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE, active: true });
+  const view = leaf.view;
+  await view.setFile(file);
+}
+
 // src/main.ts
-var SermonPrintPlugin = class extends import_obsidian6.Plugin {
+var SermonPrintPlugin = class extends import_obsidian7.Plugin {
   async onload() {
     await this.loadSettings();
     this.exporter = new SermonPrintExporter(this, this.settings);
@@ -2719,6 +2938,10 @@ var SermonPrintPlugin = class extends import_obsidian6.Plugin {
       SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE,
       (leaf) => new SermonPrintPrintPreviewView(leaf, this)
     );
+    this.registerView(
+      SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE,
+      (leaf) => new SermonPrintEditablePrintPreviewView(leaf, this)
+    );
     this.refreshLayoutStyles();
     this.addCommand({
       id: "sermonprint-edit-export",
@@ -2735,6 +2958,11 @@ var SermonPrintPlugin = class extends import_obsidian6.Plugin {
       name: "Print Preview",
       callback: async () => openSermonPrintPrintPreview(this)
     });
+    this.addCommand({
+      id: "sermonprint-editable-print-preview",
+      name: "SermonPrint: Editable Print Preview",
+      callback: async () => openSermonPrintEditablePrintPreview(this)
+    });
   }
   async exportWithMode(mode) {
     await this.exporter.exportCurrentNote(mode);
@@ -2745,7 +2973,7 @@ var SermonPrintPlugin = class extends import_obsidian6.Plugin {
   async openManuscriptView() {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
-      new import_obsidian6.Notice("Open a sermon note first.");
+      new import_obsidian7.Notice("Open a sermon note first.");
       return;
     }
     let leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_SERMONPRINT_MANUSCRIPT)[0];
@@ -2770,7 +2998,7 @@ var SermonPrintPlugin = class extends import_obsidian6.Plugin {
       `PDF path: ${pdfPath != null ? pdfPath : "unavailable"}`
     ];
     console.log(lines.join("\n"));
-    new import_obsidian6.Notice(lines.slice(1, 5).join("\n"), 12e3);
+    new import_obsidian7.Notice(lines.slice(1, 5).join("\n"), 12e3);
   }
   getExportedPdfPath(basename2) {
     const vaultPath = this.getVaultPath();
@@ -2798,6 +3026,7 @@ var SermonPrintPlugin = class extends import_obsidian6.Plugin {
     removeLayoutStyles();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_SERMONPRINT_MANUSCRIPT);
     this.app.workspace.detachLeavesOfType(SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE);
+    this.app.workspace.detachLeavesOfType(SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE);
   }
   refreshLayoutStyles() {
     injectLayoutStyles(this.settings);
