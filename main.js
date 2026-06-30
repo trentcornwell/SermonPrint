@@ -4,9 +4,6 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __commonJS = (cb, mod) => function __require() {
-  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -29,271 +26,13 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/export/ManuscriptHtml.js
-var require_ManuscriptHtml = __commonJS({
-  "src/export/ManuscriptHtml.js"(exports, module) {
-    var MANUSCRIPT_LAYOUT_DEFAULTS = {
-      fontFamily: "Georgia",
-      fontSize: "12.5pt",
-      pageWidth: "5.5in",
-      pageHeight: "8.5in",
-      margin: "0.58in",
-      lineHeight: "1.65",
-      verseColor: "#8b0000"
-    };
-    var MANUSCRIPT_SPACING = {
-      paragraph: ".20in",
-      blankLineHeight: ".24in",
-      brSpace: ".12in",
-      h1FontSize: "18pt",
-      h1LineHeight: "1.15",
-      h1Margin: "0 0 .22in 0",
-      h2FontSize: "15pt",
-      h2LineHeight: "1.22",
-      h2Margin: ".34in 0 .16in",
-      h3FontSize: "13pt",
-      h3LineHeight: "1.28",
-      h3Margin: ".28in 0 .13in",
-      h4FontSize: "12pt",
-      h4LineHeight: "1.25",
-      h4Margin: ".18in 0 .10in",
-      listMarginTop: ".10in",
-      listMarginBottom: ".18in",
-      listPaddingLeft: ".32in",
-      listItemBottom: ".10in",
-      blockquoteMargin: ".20in 0 .22in .18in",
-      blockquotePaddingLeft: ".15in",
-      hrMargin: ".22in 0"
-    };
-    function parseInches(value, fallback) {
-      const parsed = Number(String(value != null ? value : "").replace("in", "").trim());
-      return Number.isFinite(parsed) ? parsed : fallback;
-    }
-    function parsePositiveInches(value, fallback) {
-      const parsed = parseInches(value, fallback);
-      return parsed > 0 ? parsed : fallback;
-    }
-    function normalizeSettings(settings = {}) {
-      return {
-        fontFamily: settings.fontFamily || MANUSCRIPT_LAYOUT_DEFAULTS.fontFamily,
-        fontSize: settings.fontSize || MANUSCRIPT_LAYOUT_DEFAULTS.fontSize,
-        pageWidth: settings.pageWidth || MANUSCRIPT_LAYOUT_DEFAULTS.pageWidth,
-        pageHeight: settings.pageHeight || MANUSCRIPT_LAYOUT_DEFAULTS.pageHeight,
-        margin: settings.margin || MANUSCRIPT_LAYOUT_DEFAULTS.margin,
-        lineHeight: settings.lineHeight || MANUSCRIPT_LAYOUT_DEFAULTS.lineHeight,
-        verseColor: settings.verseColor || settings.bibleVerseColor || MANUSCRIPT_LAYOUT_DEFAULTS.verseColor,
-        keepTogetherRules: settings.keepTogetherRules !== false,
-        autoPageBalancing: settings.autoPageBalancing !== false
-      };
-    }
-    function getManuscriptLayoutMetrics(settings = {}) {
-      const normalized = normalizeSettings(settings);
-      const pageWidthIn = parsePositiveInches(normalized.pageWidth, 5.5);
-      const pageHeightIn = parsePositiveInches(normalized.pageHeight, 8.5);
-      const marginIn = parsePositiveInches(normalized.margin, 0.58);
-      const printableWidthIn = Math.max(1, pageWidthIn - marginIn * 2);
-      const printableHeightIn = Math.max(1, pageHeightIn - marginIn * 2);
-      return {
-        pageWidth: normalized.pageWidth,
-        pageHeight: normalized.pageHeight,
-        margin: normalized.margin,
-        fontFamily: normalized.fontFamily,
-        fontSize: normalized.fontSize,
-        lineHeight: normalized.lineHeight,
-        pageWidthIn,
-        pageHeightIn,
-        marginIn,
-        printableWidthIn,
-        printableHeightIn,
-        previewGuideStepIn: printableHeightIn,
-        firstGuideTopIn: marginIn + printableHeightIn
-      };
-    }
-    function cleanMarkdown(value) {
-      return String(value).replace(/^kangaroo names\s*$/gim, "");
-    }
-    function preserveIntentionalBlankLines(markdown2) {
-      return String(markdown2).replace(/\n{3,}/g, '\n\n<div class="sp-blank-line"></div>\n\n');
-    }
-    function escapeHtml(value) {
-      return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-    }
-    function manuscriptContentCss(settings = {}, scope = ".sermonprint-export") {
-      const normalized = normalizeSettings(settings);
-      const s = MANUSCRIPT_SPACING;
-      return `
-${scope} {
-  box-sizing: border-box;
-  font-family: ${normalized.fontFamily}, Georgia, serif;
-  font-size: ${normalized.fontSize};
-  line-height: ${normalized.lineHeight};
-  color: #111;
-}
-
-${scope} h1 {
-  text-align: center;
-  font-size: ${s.h1FontSize};
-  line-height: ${s.h1LineHeight};
-  margin: ${s.h1Margin};
-}
-
-${scope} h2 {
-  font-size: ${s.h2FontSize};
-  line-height: ${s.h2LineHeight};
-  margin: ${s.h2Margin};
-}
-
-${scope} h3 {
-  font-size: ${s.h3FontSize};
-  line-height: ${s.h3LineHeight};
-  margin: ${s.h3Margin};
-}
-
-${scope} h4 {
-  font-size: ${s.h4FontSize};
-  line-height: ${s.h4LineHeight};
-  margin: ${s.h4Margin};
-}
-
-${scope} p {
-  margin: 0 0 ${s.paragraph} 0;
-  orphans: 3;
-  widows: 3;
-}
-
-${scope} br {
-  display: block;
-  content: "";
-  margin-bottom: ${s.brSpace};
-}
-
-${scope} .sp-blank-line {
-  display: block;
-  height: ${s.blankLineHeight};
-}
-
-${scope} ul,
-${scope} ol {
-  margin-top: ${s.listMarginTop};
-  margin-bottom: ${s.listMarginBottom};
-  padding-left: ${s.listPaddingLeft};
-}
-
-${scope} li {
-  margin-bottom: ${s.listItemBottom};
-}
-
-${scope} blockquote {
-  margin: ${s.blockquoteMargin};
-  padding-left: ${s.blockquotePaddingLeft};
-  border-left: 3px solid ${normalized.verseColor};
-  color: ${normalized.verseColor};
-  font-style: italic;
-}
-
-${scope} .sp-verse-text,
-${scope} font[color] {
-  color: ${normalized.verseColor} !important;
-}
-
-${scope} hr {
-  border: none;
-  border-top: 1px solid #cfcfcf;
-  margin: ${s.hrMargin};
-}
-
-${scope} .page-break {
-  break-after: page;
-  page-break-after: always;
-}
-`;
-    }
-    function keepTogetherCss(enabled) {
-      return enabled ? `
-h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
-blockquote, table, pre, .callout { break-inside: avoid; page-break-inside: avoid; }
-li { break-inside: avoid; page-break-inside: avoid; }
-p { orphans: 3; widows: 3; }
-` : "";
-    }
-    function balanceCss(enabled) {
-      return enabled ? `
-h2 + blockquote, h2 + p, h2 + ol, h2 + ul,
-h3 + blockquote, h3 + p, h3 + ol, h3 + ul { break-before: avoid; page-break-before: avoid; }
-` : "";
-    }
-    function manuscriptPrintCss(settings = {}) {
-      const normalized = normalizeSettings(settings);
-      return `
-@page {
-  size: ${normalized.pageWidth} ${normalized.pageHeight};
-  margin: ${normalized.margin};
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
-  background: white;
-}
-
-body {
-  font-family: ${normalized.fontFamily}, Georgia, serif;
-  font-size: ${normalized.fontSize};
-  line-height: ${normalized.lineHeight};
-  color: #111;
-}
-
-${manuscriptContentCss(normalized, ".sermonprint-export")}
-${keepTogetherCss(normalized.keepTogetherRules)}
-${balanceCss(normalized.autoPageBalancing)}
-`;
-    }
-    function renderMarkdownToHtml(markdown) {
-      const MarkdownIt = eval("require")("markdown-it");
-      const md = new MarkdownIt({ html: true, linkify: true, typographer: true, breaks: true });
-      return md.render(preserveIntentionalBlankLines(cleanMarkdown(markdown)));
-    }
-    function buildPrintHtml(markdown2, settings = {}, title = "SermonPrint") {
-      return `
-<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>${escapeHtml(title)}</title>
-<style>
-${manuscriptPrintCss(settings)}
-</style>
-</head>
-<body>
-<main class="sermonprint-export">
-${renderMarkdownToHtml(markdown2)}
-</main>
-</body>
-</html>
-`;
-    }
-    module.exports = {
-      MANUSCRIPT_LAYOUT_DEFAULTS,
-      MANUSCRIPT_SPACING,
-      buildPrintHtml,
-      cleanMarkdown,
-      getManuscriptLayoutMetrics,
-      manuscriptContentCss,
-      manuscriptPrintCss,
-      normalizeSettings,
-      preserveIntentionalBlankLines,
-      renderMarkdownToHtml
-    };
-  }
-});
-
 // src/main.ts
 var main_exports = {};
 __export(main_exports, {
   default: () => SermonPrintPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 var fs3 = __toESM(require("fs"));
 var path4 = __toESM(require("path"));
 
@@ -324,11 +63,11 @@ function getPagePreset(value) {
   if (value === "custom") return null;
   return PAGE_PRESETS[value];
 }
-function parsePositiveInches2(value, fallback) {
+function parsePositiveInches(value, fallback) {
   const parsed = Number(String(value).replace("in", "").trim());
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
-function parseInches2(value, fallback) {
+function parseInches(value, fallback) {
   const parsed = Number(String(value).replace("in", "").trim());
   return Number.isFinite(parsed) ? parsed : fallback;
 }
@@ -445,14 +184,743 @@ var SermonPrintSettingTab = class extends import_obsidian.PluginSettingTab {
   }
 };
 
+// src/export/ManuscriptHtml.ts
+var MANUSCRIPT_LAYOUT_DEFAULTS = {
+  fontFamily: "Georgia",
+  fontSize: "12.5pt",
+  pageWidth: "5.5in",
+  pageHeight: "8.5in",
+  margin: "0.58in",
+  lineHeight: "1.65",
+  verseColor: "#8b0000"
+};
+var MANUSCRIPT_SPACING = {
+  paragraph: ".20in",
+  blankLineHeight: ".24in",
+  brSpace: ".12in",
+  h1FontSize: "18pt",
+  h1LineHeight: "1.15",
+  h1Margin: "0 0 .22in 0",
+  h2FontSize: "15pt",
+  h2LineHeight: "1.22",
+  h2Margin: ".34in 0 .16in",
+  h3FontSize: "13pt",
+  h3LineHeight: "1.28",
+  h3Margin: ".28in 0 .13in",
+  h4FontSize: "12pt",
+  h4LineHeight: "1.25",
+  h4Margin: ".18in 0 .10in",
+  listMarginTop: ".10in",
+  listMarginBottom: ".18in",
+  listPaddingLeft: ".32in",
+  listItemBottom: ".10in",
+  blockquoteMargin: ".20in 0 .22in .18in",
+  blockquotePaddingLeft: ".15in",
+  hrMargin: ".22in 0"
+};
+var PRINT_PREVIEW_SETTINGS = {
+  fontFamily: "Georgia",
+  fontSize: "11.5pt",
+  pageWidth: "5.5in",
+  pageHeight: "8.5in",
+  margin: "0.55in",
+  lineHeight: "1.45"
+};
+function parseInches2(value, fallback) {
+  const parsed = Number(String(value != null ? value : "").replace("in", "").trim());
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+function parsePositiveInches2(value, fallback) {
+  const parsed = parseInches2(value, fallback);
+  return parsed > 0 ? parsed : fallback;
+}
+function normalizeSettings(settings = {}) {
+  return {
+    fontFamily: settings.fontFamily || MANUSCRIPT_LAYOUT_DEFAULTS.fontFamily,
+    fontSize: settings.fontSize || MANUSCRIPT_LAYOUT_DEFAULTS.fontSize,
+    pageWidth: settings.pageWidth || MANUSCRIPT_LAYOUT_DEFAULTS.pageWidth,
+    pageHeight: settings.pageHeight || MANUSCRIPT_LAYOUT_DEFAULTS.pageHeight,
+    margin: settings.margin || MANUSCRIPT_LAYOUT_DEFAULTS.margin,
+    lineHeight: settings.lineHeight || MANUSCRIPT_LAYOUT_DEFAULTS.lineHeight,
+    verseColor: settings.verseColor || settings.bibleVerseColor || MANUSCRIPT_LAYOUT_DEFAULTS.verseColor,
+    keepTogetherRules: settings.keepTogetherRules !== false,
+    autoPageBalancing: settings.autoPageBalancing !== false
+  };
+}
+function getManuscriptLayoutMetrics(settings = {}) {
+  const normalized = normalizeSettings(settings);
+  const pageWidthIn = parsePositiveInches2(normalized.pageWidth, 5.5);
+  const pageHeightIn = parsePositiveInches2(normalized.pageHeight, 8.5);
+  const marginIn = parsePositiveInches2(normalized.margin, 0.58);
+  const printableWidthIn = Math.max(1, pageWidthIn - marginIn * 2);
+  const printableHeightIn = Math.max(1, pageHeightIn - marginIn * 2);
+  return {
+    pageWidth: normalized.pageWidth,
+    pageHeight: normalized.pageHeight,
+    margin: normalized.margin,
+    fontFamily: normalized.fontFamily,
+    fontSize: normalized.fontSize,
+    lineHeight: normalized.lineHeight,
+    pageWidthIn,
+    pageHeightIn,
+    marginIn,
+    printableWidthIn,
+    printableHeightIn,
+    previewGuideStepIn: printableHeightIn,
+    firstGuideTopIn: marginIn + printableHeightIn
+  };
+}
+function cleanMarkdown(value) {
+  return String(value).replace(/^kangaroo names\s*$/gim, "");
+}
+function escapeHtml(value) {
+  return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+function renderInlineMarkdown(value) {
+  const escaped = escapeHtml(value);
+  return escaped.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>").replace(/(^|[^_])_([^_\n]+)_/g, "$1<em>$2</em>");
+}
+function renderParagraph(lines) {
+  return `<p>${lines.map(renderInlineMarkdown).join("<br>")}</p>`;
+}
+function renderBlockquote(lines) {
+  const text = lines.map((line) => line.replace(/^>\s?/, ""));
+  return `<blockquote>${text.map(renderInlineMarkdown).join("<br>")}</blockquote>`;
+}
+function renderListItem(text, checked) {
+  const checkbox = checked === void 0 ? "" : `<input type="checkbox" disabled${checked ? " checked" : ""}> `;
+  return `<li>${checkbox}${renderInlineMarkdown(text)}</li>`;
+}
+function renderList(type, items) {
+  return `<${type}>
+${items.join("\n")}
+</${type}>`;
+}
+function manuscriptContentCss(settings = {}, scope = ".sermonprint-export") {
+  const normalized = normalizeSettings(settings);
+  const s = MANUSCRIPT_SPACING;
+  return `
+${scope} {
+  box-sizing: border-box;
+  font-family: ${normalized.fontFamily}, Georgia, serif;
+  font-size: ${normalized.fontSize};
+  line-height: ${normalized.lineHeight};
+  color: #111;
+}
+
+${scope} h1 {
+  text-align: center;
+  font-size: ${s.h1FontSize};
+  line-height: ${s.h1LineHeight};
+  margin: ${s.h1Margin};
+}
+
+${scope} h2 {
+  font-size: ${s.h2FontSize};
+  line-height: ${s.h2LineHeight};
+  margin: ${s.h2Margin};
+}
+
+${scope} h3 {
+  font-size: ${s.h3FontSize};
+  line-height: ${s.h3LineHeight};
+  margin: ${s.h3Margin};
+}
+
+${scope} h4 {
+  font-size: ${s.h4FontSize};
+  line-height: ${s.h4LineHeight};
+  margin: ${s.h4Margin};
+}
+
+${scope} p {
+  margin: 0 0 ${s.paragraph} 0;
+  orphans: 3;
+  widows: 3;
+}
+
+${scope} br {
+  display: block;
+  content: "";
+  margin-bottom: ${s.brSpace};
+}
+
+${scope} .sp-blank-line {
+  display: block;
+  height: ${s.blankLineHeight};
+}
+
+${scope} ul,
+${scope} ol {
+  margin-top: ${s.listMarginTop};
+  margin-bottom: ${s.listMarginBottom};
+  padding-left: ${s.listPaddingLeft};
+}
+
+${scope} li {
+  margin-bottom: ${s.listItemBottom};
+}
+
+${scope} li input[type="checkbox"] {
+  margin-right: .06in;
+  transform: translateY(1px);
+}
+
+${scope} blockquote {
+  margin: ${s.blockquoteMargin};
+  padding-left: ${s.blockquotePaddingLeft};
+  border-left: 3px solid ${normalized.verseColor};
+  color: ${normalized.verseColor};
+  font-style: italic;
+}
+
+${scope} .sp-verse-text,
+${scope} font[color] {
+  color: ${normalized.verseColor} !important;
+}
+
+${scope} hr {
+  border: none;
+  border-top: 1px solid #cfcfcf;
+  margin: ${s.hrMargin};
+}
+
+${scope} .page-break {
+  break-after: page;
+  page-break-after: always;
+}
+
+${scope} p.sp-paragraph-continuation {
+  margin-top: 0;
+}
+`;
+}
+function keepTogetherCss(enabled) {
+  return enabled ? `
+h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+blockquote, table, pre, .callout { break-inside: avoid; page-break-inside: avoid; }
+li { break-inside: avoid; page-break-inside: avoid; }
+p { orphans: 3; widows: 3; }
+` : "";
+}
+function balanceCss(enabled) {
+  return enabled ? `
+h2 + blockquote, h2 + p, h2 + ol, h2 + ul,
+h3 + blockquote, h3 + p, h3 + ol, h3 + ul { break-before: avoid; page-break-before: avoid; }
+` : "";
+}
+function paginatedPrintCss(settings = {}) {
+  const normalized = normalizeSettings({ ...settings, ...PRINT_PREVIEW_SETTINGS });
+  return `
+@page {
+  size: ${normalized.pageWidth} ${normalized.pageHeight};
+  margin: 0;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: white;
+}
+
+body {
+  font-family: ${normalized.fontFamily}, Georgia, serif;
+  font-size: ${normalized.fontSize};
+  line-height: ${normalized.lineHeight};
+  color: #111;
+}
+
+.sermonprint-export {
+  margin: 0;
+  padding: 0;
+}
+
+.sp-print-source {
+  display: none;
+}
+
+.sp-print-page {
+  position: relative;
+  box-sizing: border-box;
+  width: ${normalized.pageWidth};
+  height: ${normalized.pageHeight};
+  background: white;
+  overflow: visible;
+}
+
+.sp-print-page:not(:last-child) {
+  break-after: page;
+  page-break-after: always;
+}
+
+.sp-print-page-content {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: ${normalized.margin};
+  overflow: visible;
+}
+
+.sp-print-page-label {
+  display: none;
+}
+
+${manuscriptContentCss(normalized, ".sp-print-page-content")}
+${keepTogetherCss(normalized.keepTogetherRules)}
+${balanceCss(normalized.autoPageBalancing)}
+
+@media screen {
+  html {
+    background: #cfcfcf;
+  }
+
+  body {
+    background: #cfcfcf;
+    padding: 36px 0 72px;
+  }
+
+  .sermonprint-export {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 36px;
+  }
+
+  .sp-print-page {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .16);
+  }
+
+  .sp-print-page-label {
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: calc(-.82in);
+    transform: translateY(-50%);
+    width: .66in;
+    text-align: right;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 600;
+    color: #5f6368;
+    pointer-events: none;
+    user-select: none;
+  }
+}
+`;
+}
+function renderMarkdownToHtml(markdown) {
+  const lines = cleanMarkdown(markdown).replace(/\r\n?/g, "\n").split("\n");
+  const html = [];
+  let paragraph = [];
+  let blockquote = [];
+  let listType = null;
+  let listItems = [];
+  let blankCount = 0;
+  function flushList() {
+    if (!listType || !listItems.length) return;
+    html.push(renderList(listType, listItems));
+    listType = null;
+    listItems = [];
+  }
+  function flushParagraph() {
+    if (!paragraph.length) return;
+    flushList();
+    html.push(renderParagraph(paragraph));
+    paragraph = [];
+  }
+  function flushBlockquote() {
+    if (!blockquote.length) return;
+    flushList();
+    html.push(renderBlockquote(blockquote));
+    blockquote = [];
+  }
+  function flushText() {
+    flushList();
+    flushParagraph();
+    flushBlockquote();
+  }
+  function addListItem(type, item) {
+    flushParagraph();
+    flushBlockquote();
+    if (listType && listType !== type) flushList();
+    listType = type;
+    listItems.push(item);
+  }
+  function pushBlankSpacers() {
+    if (blankCount <= 1) {
+      blankCount = 0;
+      return;
+    }
+    for (let i = 1; i < blankCount; i += 1) {
+      html.push('<div class="sp-blank-line" aria-hidden="true"></div>');
+    }
+    blankCount = 0;
+  }
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushText();
+      blankCount += 1;
+      continue;
+    }
+    pushBlankSpacers();
+    if (/^---+$/.test(trimmed) || /^\*\*\*+$/.test(trimmed) || /^___+$/.test(trimmed)) {
+      flushText();
+      html.push("<hr>");
+      continue;
+    }
+    const heading = /^(#{1,3})\s+(.+)$/.exec(trimmed);
+    if (heading) {
+      flushText();
+      const level = heading[1].length;
+      html.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+      continue;
+    }
+    const unorderedListItem = /^[-*+]\s+(?:\[([ xX])\]\s+)?(.+)$/.exec(trimmed);
+    if (unorderedListItem) {
+      const checked = unorderedListItem[1] ? unorderedListItem[1].toLowerCase() === "x" : void 0;
+      addListItem("ul", renderListItem(unorderedListItem[2], checked));
+      continue;
+    }
+    const orderedListItem = /^\d+[.)]\s+(.+)$/.exec(trimmed);
+    if (orderedListItem) {
+      addListItem("ol", renderListItem(orderedListItem[1]));
+      continue;
+    }
+    if (trimmed.startsWith(">")) {
+      flushList();
+      flushParagraph();
+      blockquote.push(trimmed);
+      continue;
+    }
+    flushList();
+    flushBlockquote();
+    paragraph.push(trimmed);
+  }
+  flushText();
+  return html.join("\n");
+}
+function paginationScript() {
+  return `
+(function () {
+  var OVERFLOW_FUDGE_PX = 1;
+
+  function createPage(pageNumber) {
+    var page = document.createElement("div");
+    page.className = "sp-print-page";
+    page.setAttribute("data-page", String(pageNumber));
+
+    var label = document.createElement("div");
+    label.className = "sp-print-page-label";
+    label.textContent = "Page " + pageNumber;
+    page.appendChild(label);
+
+    var content = document.createElement("div");
+    content.className = "sp-print-page-content";
+    page.appendChild(content);
+
+    return { page: page, content: content };
+  }
+
+  function isHeading(block) {
+    return /^H[1-6]$/.test(block.tagName);
+  }
+
+  function isParagraph(block) {
+    return block.tagName === "P";
+  }
+
+  function isKeepTogetherBlock(block) {
+    return isHeading(block) || block.tagName === "BLOCKQUOTE";
+  }
+
+  function pageOverflows(content) {
+    return content.scrollHeight > content.clientHeight + OVERFLOW_FUDGE_PX;
+  }
+
+  function pageHasContent(content) {
+    return content.children.length > 0;
+  }
+
+  function warnOversized(block) {
+    console.warn("SermonPrint Print Preview: a single block is taller than one page and will overflow for now.", block.textContent || block.tagName);
+  }
+
+  function clearElement(element) {
+    while (element.firstChild) element.removeChild(element.firstChild);
+  }
+
+  function markContinuation(paragraph, sourceBlock, partIndex) {
+    if (sourceBlock.dataset.spBlockId) paragraph.dataset.spBlockId = sourceBlock.dataset.spBlockId;
+    if (partIndex <= 0) return;
+    paragraph.classList.add("sp-paragraph-continuation");
+    if (sourceBlock.dataset.spBlockId) paragraph.dataset.spContinuationOf = sourceBlock.dataset.spBlockId;
+    paragraph.dataset.spContinuationPart = String(partIndex + 1);
+  }
+
+  function textPositions(root) {
+    var positions = [];
+    
+    function walk(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        var value = node.nodeValue || "";
+        for (var offset = 0; offset < value.length; offset += 1) {
+          positions.push({ node: node, offset: offset });
+        }
+        return;
+      }
+
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      Array.prototype.forEach.call(node.childNodes, walk);
+    }
+
+    walk(root);
+    return positions;
+  }
+
+  function lineBottomLimit(paragraph, content) {
+    var marginBottom = parseFloat(window.getComputedStyle(paragraph).marginBottom || "0") || 0;
+    return content.getBoundingClientRect().bottom - marginBottom + OVERFLOW_FUDGE_PX;
+  }
+
+  function renderedLines(paragraph) {
+    var positions = textPositions(paragraph);
+    var lines = [];
+    var range = document.createRange();
+
+    positions.forEach(function (position, index) {
+      range.setStart(position.node, position.offset);
+      range.setEnd(position.node, position.offset + 1);
+      var rects = range.getClientRects();
+      var last = rects[rects.length - 1];
+      var current = lines[lines.length - 1];
+
+      if (!last) {
+        if (current) current.end = index + 1;
+        return;
+      }
+
+      if (!current || Math.abs(last.top - current.top) > 2) {
+        lines.push({ start: index, end: index + 1, top: last.top, bottom: last.bottom });
+        return;
+      }
+
+      current.end = index + 1;
+      current.bottom = Math.max(current.bottom, last.bottom);
+    });
+
+    range.detach();
+    return { lines: lines, positions: positions };
+  }
+
+  function paragraphFragment(paragraph, positions, start, end) {
+    var fragment = document.createDocumentFragment();
+    if (start >= end || !positions.length) return fragment;
+
+    var first = positions[start];
+    var last = positions[end - 1];
+    var range = document.createRange();
+    range.setStart(first.node, first.offset);
+    range.setEnd(last.node, last.offset + 1);
+    fragment.appendChild(range.cloneContents());
+    range.detach();
+    return fragment;
+  }
+
+  function paragraphSegment(sourceBlock, renderedParagraph, positions, start, end, partIndex) {
+    var paragraph = sourceBlock.cloneNode(false);
+    markContinuation(paragraph, sourceBlock, partIndex);
+    paragraph.appendChild(paragraphFragment(renderedParagraph, positions, start, end));
+    return paragraph;
+  }
+
+  function characterCount(block) {
+    return textPositions(block).length;
+  }
+
+  function splitParagraphAcrossPages(block, state) {
+    var remaining = block.cloneNode(true);
+    var partIndex = 0;
+
+    while (characterCount(remaining) > 0) {
+      var paragraph = remaining.cloneNode(true);
+      markContinuation(paragraph, block, partIndex);
+      state.current.content.appendChild(paragraph);
+
+      if (!pageOverflows(state.current.content)) {
+        return;
+      }
+
+      var measurement = renderedLines(paragraph);
+      var lines = measurement.lines;
+      var positions = measurement.positions;
+      var bottom = lineBottomLimit(paragraph, state.current.content);
+      var fittingLines = lines.filter(function (line) {
+        return line.bottom <= bottom;
+      });
+
+      if (!fittingLines.length) {
+        state.current.content.removeChild(paragraph);
+
+        if (!pageHasContent(state.current.content)) {
+          paragraph = remaining.cloneNode(true);
+          markContinuation(paragraph, block, partIndex);
+          state.current.content.appendChild(paragraph);
+          warnOversized(block);
+          return;
+        }
+
+        state.nextPage();
+        continue;
+      }
+
+      var splitOffset = fittingLines[fittingLines.length - 1].end;
+      if (splitOffset >= positions.length) return;
+
+      var firstSegment = paragraphSegment(block, paragraph, positions, 0, splitOffset, partIndex);
+      var nextSegment = paragraphSegment(block, paragraph, positions, splitOffset, positions.length, partIndex + 1);
+
+      state.current.content.replaceChild(firstSegment, paragraph);
+      remaining = nextSegment;
+      partIndex += 1;
+      state.nextPage();
+    }
+  }
+
+  function appendKeepTogetherBlock(block, state) {
+    var clone = block.cloneNode(true);
+    state.current.content.appendChild(clone);
+
+    if (!pageOverflows(state.current.content)) return;
+
+    if (!pageHasContent(state.current.content) || state.current.content.children.length === 1) {
+      warnOversized(block);
+      return;
+    }
+
+    state.current.content.removeChild(clone);
+    state.nextPage();
+    state.current.content.appendChild(clone);
+
+    if (pageOverflows(state.current.content)) warnOversized(block);
+  }
+
+  function headingGroupFits(block, nextBlock, state) {
+    if (!nextBlock) return true;
+
+    var heading = block.cloneNode(true);
+    var next = nextBlock.cloneNode(true);
+    state.current.content.appendChild(heading);
+    state.current.content.appendChild(next);
+    var fits = !pageOverflows(state.current.content);
+    state.current.content.removeChild(next);
+    state.current.content.removeChild(heading);
+    return fits;
+  }
+
+  function placeHeading(block, nextBlock, state) {
+    if (nextBlock && !headingGroupFits(block, nextBlock, state) && pageHasContent(state.current.content)) {
+      state.nextPage();
+    }
+
+    appendKeepTogetherBlock(block, state);
+  }
+
+  function paginatePrintPreview() {
+    var source = document.querySelector(".sp-print-source");
+    var pages = document.querySelector(".sp-print-pages");
+    if (!source || !pages) return;
+
+    clearElement(pages);
+    var blocks = Array.prototype.slice.call(source.children);
+    blocks.forEach(function (block, index) {
+      if (!block.dataset.spBlockId) block.dataset.spBlockId = "sp-block-" + (index + 1);
+    });
+
+    var pageNumber = 1;
+    var current = createPage(pageNumber);
+    pages.appendChild(current.page);
+
+    var state = {
+      get current() {
+        return current;
+      },
+      nextPage: function () {
+        pageNumber += 1;
+        current = createPage(pageNumber);
+        pages.appendChild(current.page);
+      }
+    };
+
+    blocks.forEach(function (block, index) {
+      var nextBlock = blocks[index + 1] || null;
+
+      if (isHeading(block)) {
+        placeHeading(block, nextBlock, state);
+        return;
+      }
+
+      if (isParagraph(block)) {
+        splitParagraphAcrossPages(block, state);
+        return;
+      }
+
+      if (isKeepTogetherBlock(block)) {
+        appendKeepTogetherBlock(block, state);
+        return;
+      }
+
+      appendKeepTogetherBlock(block, state);
+    });
+  }
+
+  window.SermonPrintPaginator = { paginate: paginatePrintPreview };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", paginatePrintPreview);
+  } else {
+    paginatePrintPreview();
+  }
+})();
+`;
+}
+function buildPaginatedManuscriptHtml(markdown, settings = {}, title = "SermonPrint") {
+  const normalized = normalizeSettings({ ...settings, ...PRINT_PREVIEW_SETTINGS });
+  return `
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<style>
+${paginatedPrintCss(normalized)}
+</style>
+</head>
+<body>
+<main class="sermonprint-export">
+<div class="sp-print-source">
+${renderMarkdownToHtml(markdown)}
+</div>
+<div class="sp-print-pages" aria-label="SermonPrint paginated preview"></div>
+</main>
+<script>
+${paginationScript()}
+</script>
+</body>
+</html>
+`;
+}
+
 // src/styles.ts
-var import_ManuscriptHtml = __toESM(require_ManuscriptHtml());
 var STYLE_ID = "sermonprint-layout-styles";
 function numberFromAnyInch(value) {
-  return parseInches2(value, 0);
+  return parseInches(value, 0);
 }
 function getPageMetrics(settings) {
-  const metrics = (0, import_ManuscriptHtml.getManuscriptLayoutMetrics)(settings);
+  const metrics = getManuscriptLayoutMetrics(settings);
   const pageHeight = metrics.pageHeightIn;
   const pageWidth = metrics.pageWidthIn;
   const margin = metrics.marginIn;
@@ -465,8 +933,8 @@ function injectLayoutStyles(settings) {
   (_a = document.getElementById(STYLE_ID)) == null ? void 0 : _a.remove();
   const { pageHeight, pageWidth, margin, guideAt } = getPageMetrics(settings);
   const textWidth = Math.max(1, pageWidth - margin * 2);
-  const defaults = import_ManuscriptHtml.MANUSCRIPT_LAYOUT_DEFAULTS;
-  const spacing = import_ManuscriptHtml.MANUSCRIPT_SPACING;
+  const defaults = MANUSCRIPT_LAYOUT_DEFAULTS;
+  const spacing = MANUSCRIPT_SPACING;
   const guideBackground = settings.showPageGuides ? `background-image: repeating-linear-gradient(
         to bottom,
         transparent 0,
@@ -672,6 +1140,16 @@ body .sermonprint-manuscript-editor ol {
 }
 body .sermonprint-manuscript-editor li {
   margin-bottom: ${spacing.listItemBottom};
+}
+body .sermonprint-manuscript-editor .sermonprint-preview-page-guard {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+  user-select: none;
 }
 body .sermonprint-manuscript-editor div,
 body .sermonprint-manuscript-editor p,
@@ -1060,6 +1538,67 @@ body .sp-page-content .sp-transition {
   color: #333;
 }
 
+/* SermonPrint Print Preview */
+body .sp-print-preview-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #d7d7d7;
+}
+
+body .sp-print-preview-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(245, 245, 245, .96);
+  border-bottom: 1px solid rgba(0, 0, 0, .12);
+}
+
+body .sp-print-preview-shell {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(280px, 38%) minmax(360px, 1fr);
+  gap: 0;
+}
+
+body .sp-print-preview-editor {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  border: 0;
+  border-right: 1px solid rgba(0, 0, 0, .16);
+  padding: 18px;
+  box-sizing: border-box;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: var(--font-monospace), monospace;
+  font-size: 14px;
+  line-height: 1.55;
+  outline: none;
+}
+
+body .sp-print-preview-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #cfcfcf;
+}
+
+@media (max-width: 860px) {
+  body .sp-print-preview-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(220px, 38%) minmax(320px, 1fr);
+  }
+
+  body .sp-print-preview-editor {
+    border-right: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, .16);
+  }
+}
+
 `;
   document.head.appendChild(style);
 }
@@ -1151,6 +1690,50 @@ var SermonPrintExporter = class {
   constructor(plugin, settings) {
     this.plugin = plugin;
     this.settings = settings;
+  }
+  async exportHtml(html, basename2, outputPath) {
+    var _a;
+    const vaultPath = this.getVaultPath();
+    if (!vaultPath) {
+      new import_obsidian2.Notice("Could not find vault path.");
+      return null;
+    }
+    const pluginDir = path3.join(vaultPath, (_a = this.plugin.manifest.dir) != null ? _a : ".obsidian/plugins/vision-sermon-toolkit");
+    const exporterScript = path3.join(pluginDir, "exporter.js");
+    const defaultFolder = this.resolveExportFolder(vaultPath);
+    const pdfPath = outputPath || path3.join(defaultFolder, `${basename2} SermonPrint.pdf`);
+    const exportFolder = path3.dirname(pdfPath);
+    fs2.mkdirSync(exportFolder, { recursive: true });
+    const htmlPath = path3.join(exportFolder, `${path3.basename(pdfPath, ".pdf")}.sermonprint-preview.html`);
+    new import_obsidian2.Notice("Creating SermonPrint PDF...");
+    try {
+      let nodeExecutable;
+      try {
+        nodeExecutable = getNodeExecutable();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("SermonPrint export failed", error);
+        new import_obsidian2.Notice("SermonPrint could not start because Node.js is unavailable. Install Node.js or set the Node path before exporting.");
+        return null;
+      }
+      fs2.writeFileSync(htmlPath, html, "utf8");
+      await this.runNode(nodeExecutable, exporterScript, ["--html", htmlPath, pdfPath]);
+      await this.waitForValidPdf(pdfPath);
+      new import_obsidian2.Notice(`SermonPrint PDF saved: ${pdfPath}`);
+      if (this.settings.openAfterExport) await this.tryOpenFile(pdfPath);
+      return pdfPath;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("SermonPrint export failed", error);
+      new import_obsidian2.Notice(message.includes("Node") ? "SermonPrint could not start because Node.js is unavailable. Install Node.js or set the Node path before exporting." : `SermonPrint export failed: ${message}`);
+      return null;
+    } finally {
+      try {
+        if (fs2.existsSync(htmlPath)) fs2.unlinkSync(htmlPath);
+      } catch (error) {
+        console.warn("SermonPrint could not remove temporary preview HTML.", error);
+      }
+    }
   }
   async exportCurrentNote(mode) {
     var _a;
@@ -1296,7 +1879,6 @@ var SermonPrintExporter = class {
 
 // src/manuscriptView.ts
 var import_obsidian3 = require("obsidian");
-var import_ManuscriptHtml2 = __toESM(require_ManuscriptHtml());
 var VIEW_TYPE_SERMONPRINT_MANUSCRIPT = "sermonprint-manuscript-view";
 var STRUCTURE_INSERTS = [
   { label: "Big Idea", markdown: "> **Big Idea:** " },
@@ -1321,6 +1903,8 @@ var STRUCTURE_INSERTS = [
   { label: "Quote", markdown: "> " }
 ];
 var EXPORT_GUIDE_CALIBRATION_IN = 0;
+var PREVIEW_PAGE_GUARD_CLASS = "sermonprint-preview-page-guard";
+var PREVIEW_PAGE_GUARD_BUFFER_IN = 0.18;
 function inlineHtmlToMarkdown(el) {
   let output = "";
   el.childNodes.forEach((node) => {
@@ -1331,6 +1915,7 @@ function inlineHtmlToMarkdown(el) {
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const child = node;
+    if (child.classList.contains(PREVIEW_PAGE_GUARD_CLASS)) return;
     const tag = child.tagName.toLowerCase();
     const text = inlineHtmlToMarkdown(child);
     if (tag === "strong" || tag === "b") output += `**${text}**`;
@@ -1347,6 +1932,7 @@ function htmlToMarkdown(root) {
     return inlineHtmlToMarkdown(el).trimEnd();
   }
   function walkBlock(el) {
+    if (el instanceof HTMLElement && el.classList.contains(PREVIEW_PAGE_GUARD_CLASS)) return;
     const tag = el.tagName.toLowerCase();
     const htmlEl = el;
     const text = textOf(htmlEl).trim();
@@ -1471,16 +2057,18 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
       return;
     }
     this.editorEl.empty();
-    const md2 = await this.plugin.app.vault.read(this.file);
-    await import_obsidian3.MarkdownRenderer.render(this.plugin.app, md2, this.editorEl, this.file.path, this);
+    const md = await this.plugin.app.vault.read(this.file);
+    await import_obsidian3.MarkdownRenderer.render(this.plugin.app, md, this.editorEl, this.file.path, this);
     new import_obsidian3.Notice("SermonPrint Manuscript View loaded.");
     this.scheduleGuideUpdate();
   }
   async save() {
     if (!this.file || !this.editorEl) return;
-    const markdown2 = htmlToMarkdown(this.editorEl);
-    await this.plugin.app.vault.modify(this.file, markdown2);
+    const markdown = htmlToMarkdown(this.editorEl);
+    this.removePreviewPageGuards();
+    await this.plugin.app.vault.modify(this.file, markdown);
     new import_obsidian3.Notice("SermonPrint manuscript saved.");
+    this.scheduleGuideUpdate();
   }
   formatBlock(tag) {
     var _a;
@@ -1488,10 +2076,10 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
     document.execCommand("formatBlock", false, tag);
     this.scheduleGuideUpdate();
   }
-  insertMarkdownBlock(markdown2) {
+  insertMarkdownBlock(markdown) {
     var _a;
     (_a = this.editorEl) == null ? void 0 : _a.focus();
-    const lines = markdown2.split("\n");
+    const lines = markdown.split("\n");
     let html = "";
     for (const line of lines) {
       if (line.startsWith("### ")) html += `<h3>${line.slice(4)}</h3>`;
@@ -1529,9 +2117,9 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
   applyManuscriptVariables() {
     const shell = this.containerEl.querySelector(".sermonprint-manuscript-shell");
     if (!shell) return;
-    const pageWidth = parsePositiveInches2(this.plugin.settings.pageWidth, 5.5);
-    const pageHeight = parsePositiveInches2(this.plugin.settings.pageHeight, 8.5);
-    const margin = parsePositiveInches2(this.plugin.settings.margin, 0.58);
+    const pageWidth = parsePositiveInches(this.plugin.settings.pageWidth, 5.5);
+    const pageHeight = parsePositiveInches(this.plugin.settings.pageHeight, 8.5);
+    const margin = parsePositiveInches(this.plugin.settings.margin, 0.58);
     const fontSize = parsePositivePoints(this.plugin.settings.fontSize, 12.5);
     const lineHeight = Number(this.plugin.settings.lineHeight) || 1.65;
     const printableHeight = Math.max(1, pageHeight - margin * 2);
@@ -1552,24 +2140,52 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
     if (!this.editorEl || !this.guidesEl || !this.pageCountEl) return;
     this.applyManuscriptVariables();
     this.guidesEl.empty();
-    const metrics = (0, import_ManuscriptHtml2.getManuscriptLayoutMetrics)(this.plugin.settings);
-    const guideOffsetIn = parseInches2(this.plugin.settings.pageGuideOffset, 0);
+    this.removePreviewPageGuards();
+    const metrics = getManuscriptLayoutMetrics(this.plugin.settings);
+    const guideOffsetIn = parseInches(this.plugin.settings.pageGuideOffset, 0);
     const marginPx = metrics.marginIn * INCH_TO_PX;
     const printableHeightPx2 = metrics.previewGuideStepIn * INCH_TO_PX;
     const guideOffsetPx = (guideOffsetIn + EXPORT_GUIDE_CALIBRATION_IN) * INCH_TO_PX;
     const editableContentHeight = Math.max(0, this.editorEl.scrollHeight - marginPx * 2);
     const pages = Math.max(1, Math.ceil(editableContentHeight / printableHeightPx2));
     for (let i = 1; i < pages; i++) {
+      const guideTop = marginPx + i * printableHeightPx2 + guideOffsetPx;
+      this.insertPreviewPageGuard(guideTop);
       const marker = this.guidesEl.createDiv({ cls: "sermonprint-page-break-marker" });
-      marker.style.top = `${marginPx + i * printableHeightPx2 + guideOffsetPx}px`;
+      marker.style.top = `${guideTop}px`;
       marker.createSpan({ text: `Page ${i + 1}` });
     }
     this.pageCountEl.setText(`Page 1 of ${pages}`);
   }
+  removePreviewPageGuards() {
+    var _a;
+    (_a = this.editorEl) == null ? void 0 : _a.querySelectorAll(`.${PREVIEW_PAGE_GUARD_CLASS}`).forEach((guard) => guard.remove());
+  }
+  insertPreviewPageGuard(guideTop) {
+    if (!this.editorEl) return;
+    const blocks = Array.from(this.editorEl.children).filter((child) => {
+      return child instanceof HTMLElement && !child.classList.contains(PREVIEW_PAGE_GUARD_CLASS);
+    });
+    const crossingBlock = blocks.find((block) => {
+      const blockTop = block.offsetTop;
+      const blockBottom = block.offsetTop + block.offsetHeight;
+      return blockTop < guideTop && blockBottom > guideTop;
+    });
+    if (!crossingBlock) return;
+    const guard = document.createElement("div");
+    guard.className = PREVIEW_PAGE_GUARD_CLASS;
+    guard.contentEditable = "false";
+    guard.setAttribute("aria-hidden", "true");
+    guard.setAttribute("data-sermonprint-preview-only", "true");
+    const bufferPx = PREVIEW_PAGE_GUARD_BUFFER_IN * INCH_TO_PX;
+    const neededHeight = Math.max(bufferPx, guideTop - crossingBlock.offsetTop + bufferPx);
+    guard.style.height = `${neededHeight}px`;
+    crossingBlock.before(guard);
+  }
   getPaginationDiagnostics() {
     if (!this.editorEl) return null;
-    const metrics = (0, import_ManuscriptHtml2.getManuscriptLayoutMetrics)(this.plugin.settings);
-    const guideOffsetIn = parseInches2(this.plugin.settings.pageGuideOffset, 0);
+    const metrics = getManuscriptLayoutMetrics(this.plugin.settings);
+    const guideOffsetIn = parseInches(this.plugin.settings.pageGuideOffset, 0);
     const marginPx = metrics.marginIn * INCH_TO_PX;
     const printableHeightPx2 = metrics.previewGuideStepIn * INCH_TO_PX;
     const guideOffsetPx = (guideOffsetIn + EXPORT_GUIDE_CALIBRATION_IN) * INCH_TO_PX;
@@ -1611,8 +2227,8 @@ function detectType(line) {
   if (clean.startsWith("**conclusion")) return "conclusion";
   return "paragraph";
 }
-function parseMarkdownToDocument(markdown2, fallbackTitle = "Untitled Sermon") {
-  const chunks = markdown2.split(/\n{2,}/).map((x) => x.trim()).filter(Boolean);
+function parseMarkdownToDocument(markdown, fallbackTitle = "Untitled Sermon") {
+  const chunks = markdown.split(/\n{2,}/).map((x) => x.trim()).filter(Boolean);
   const blocks = chunks.map((chunk, index) => {
     const type = detectType(chunk);
     const level = chunk.startsWith("### ") ? 3 : chunk.startsWith("## ") ? 2 : chunk.startsWith("# ") ? 1 : void 0;
@@ -1886,8 +2502,8 @@ var ManuscriptEditorV2View = class extends import_obsidian4.ItemView {
       return;
     }
     this.file = file;
-    const markdown2 = await this.app.vault.read(file);
-    const document2 = parseMarkdownToDocument(markdown2, file.basename);
+    const markdown = await this.app.vault.read(file);
+    const document2 = parseMarkdownToDocument(markdown, file.basename);
     (_b = this.measureService) == null ? void 0 : _b.clear();
     const measuredHeights = (_c = this.measureService) == null ? void 0 : _c.measureBlocks(document2.blocks, DEFAULT_PAGE_SETTINGS);
     const pages = measuredHeights ? paginateDocument(document2, DEFAULT_PAGE_SETTINGS, (block, settings) => {
@@ -1932,8 +2548,156 @@ async function openManuscriptEngineV2(plugin) {
   await view.setFile(file);
 }
 
+// src/ui/PrintPreviewView.ts
+var import_obsidian5 = require("obsidian");
+var SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE = "sermonprint-print-preview";
+var SermonPrintPrintPreviewView = class extends import_obsidian5.ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.file = null;
+    this.editorEl = null;
+    this.iframeEl = null;
+    this.lastHtml = "";
+    this.lastMarkdown = "";
+    this.refreshTimer = null;
+    this.plugin = plugin;
+  }
+  getViewType() {
+    return SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE;
+  }
+  getDisplayText() {
+    return "SermonPrint Print Preview";
+  }
+  async onOpen() {
+    this.containerEl.empty();
+    const root = this.containerEl.createDiv({ cls: "sp-print-preview-root" });
+    const toolbar = root.createDiv({ cls: "sp-print-preview-toolbar" });
+    toolbar.createEl("button", { text: "Save" }).onclick = () => this.saveMarkdown();
+    toolbar.createEl("button", { text: "Refresh" }).onclick = () => this.renderPreview();
+    toolbar.createEl("button", { text: "Export PDF" }).onclick = () => this.exportPdf();
+    toolbar.createEl("button", { text: "Back to Markdown" }).onclick = () => this.openMarkdownFile();
+    const shell = root.createDiv({ cls: "sp-print-preview-shell" });
+    this.editorEl = shell.createEl("textarea", {
+      cls: "sp-print-preview-editor",
+      attr: { spellcheck: "true" }
+    });
+    this.iframeEl = shell.createEl("iframe", {
+      cls: "sp-print-preview-frame",
+      attr: { title: "SermonPrint PDF preview" }
+    });
+    this.editorEl.addEventListener("input", () => this.schedulePreviewRefresh());
+    await this.loadCurrentFile();
+  }
+  onClose() {
+    if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer);
+    this.refreshTimer = null;
+    return Promise.resolve();
+  }
+  async setFile(file) {
+    this.file = file;
+    await this.loadCurrentFile();
+  }
+  async loadCurrentFile() {
+    const active = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
+    const file = this.file || (active == null ? void 0 : active.file);
+    if (!file) {
+      if (this.editorEl) this.editorEl.value = "";
+      this.lastHtml = buildPaginatedManuscriptHtml("", this.plugin.settings, "SermonPrint");
+      if (this.iframeEl) this.iframeEl.srcdoc = this.lastHtml;
+      new import_obsidian5.Notice("Open a sermon note first.");
+      return;
+    }
+    this.file = file;
+    if (this.editorEl) this.editorEl.value = await this.app.vault.read(file);
+    this.renderPreview();
+  }
+  schedulePreviewRefresh() {
+    if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer);
+    this.refreshTimer = window.setTimeout(() => {
+      this.refreshTimer = null;
+      this.renderPreview();
+    }, 400);
+  }
+  buildCurrentHtml() {
+    var _a, _b, _c;
+    const markdown = (_b = (_a = this.editorEl) == null ? void 0 : _a.value) != null ? _b : "";
+    const title = ((_c = this.file) == null ? void 0 : _c.basename) || "SermonPrint";
+    return buildPaginatedManuscriptHtml(markdown, this.plugin.settings, title);
+  }
+  renderPreview() {
+    var _a, _b;
+    const markdown = (_b = (_a = this.editorEl) == null ? void 0 : _a.value) != null ? _b : "";
+    if (this.lastHtml && markdown === this.lastMarkdown) return;
+    this.lastMarkdown = markdown;
+    this.lastHtml = this.buildCurrentHtml();
+    if (this.iframeEl) this.iframeEl.srcdoc = this.lastHtml;
+  }
+  async saveMarkdown() {
+    if (!this.file || !this.editorEl) {
+      new import_obsidian5.Notice("Open a sermon note first.");
+      return;
+    }
+    await this.app.vault.modify(this.file, this.editorEl.value);
+    this.renderPreview();
+    new import_obsidian5.Notice("SermonPrint markdown saved.");
+  }
+  async exportPdf() {
+    if (!this.file) {
+      new import_obsidian5.Notice("Open a sermon note first.");
+      return;
+    }
+    const outputPath = await this.choosePdfPath();
+    if (!outputPath) return;
+    this.renderPreview();
+    await this.plugin.exportHtmlToPdf(this.lastHtml, this.file.basename, outputPath);
+  }
+  async openMarkdownFile() {
+    if (!this.file) return;
+    await this.app.workspace.openLinkText(this.file.path, "", false);
+  }
+  async choosePdfPath() {
+    var _a, _b, _c, _d, _e;
+    if (!this.file) return null;
+    const electron = (_a = window.require) == null ? void 0 : _a.call(window, "electron");
+    const remote = electron == null ? void 0 : electron.remote;
+    const dialog = (_b = remote == null ? void 0 : remote.dialog) != null ? _b : electron == null ? void 0 : electron.dialog;
+    const currentWindow = (_c = remote == null ? void 0 : remote.getCurrentWindow) == null ? void 0 : _c.call(remote);
+    if (!(dialog == null ? void 0 : dialog.showSaveDialog) && !(dialog == null ? void 0 : dialog.showSaveDialogSync)) {
+      new import_obsidian5.Notice("SermonPrint could not open a save dialog in this Obsidian window.");
+      return null;
+    }
+    const options = {
+      title: "Save SermonPrint PDF",
+      defaultPath: `${this.file.basename} SermonPrint.pdf`,
+      filters: [{ name: "PDF", extensions: ["pdf"] }]
+    };
+    if (dialog.showSaveDialog) {
+      const result = currentWindow ? await dialog.showSaveDialog(currentWindow, options) : await dialog.showSaveDialog(options);
+      return result.canceled ? null : this.ensurePdfExtension(result.filePath);
+    }
+    const selectedPath = currentWindow ? (_d = dialog.showSaveDialogSync(currentWindow, options)) != null ? _d : null : (_e = dialog.showSaveDialogSync(options)) != null ? _e : null;
+    return this.ensurePdfExtension(selectedPath);
+  }
+  ensurePdfExtension(filePath) {
+    if (!filePath) return null;
+    return filePath.toLowerCase().endsWith(".pdf") ? filePath : `${filePath}.pdf`;
+  }
+};
+async function openSermonPrintPrintPreview(plugin) {
+  const active = plugin.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
+  const file = active == null ? void 0 : active.file;
+  if (!file) {
+    new import_obsidian5.Notice("Open a sermon note first.");
+    return;
+  }
+  const leaf = plugin.app.workspace.getLeaf("tab");
+  await leaf.setViewState({ type: SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE, active: true });
+  const view = leaf.view;
+  await view.setFile(file);
+}
+
 // src/main.ts
-var SermonPrintPlugin = class extends import_obsidian5.Plugin {
+var SermonPrintPlugin = class extends import_obsidian6.Plugin {
   async onload() {
     await this.loadSettings();
     this.exporter = new SermonPrintExporter(this, this.settings);
@@ -1951,6 +2715,10 @@ var SermonPrintPlugin = class extends import_obsidian5.Plugin {
       SERMONPRINT_V2_VIEW_TYPE,
       (leaf) => new ManuscriptEditorV2View(leaf, this)
     );
+    this.registerView(
+      SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE,
+      (leaf) => new SermonPrintPrintPreviewView(leaf, this)
+    );
     this.refreshLayoutStyles();
     this.addCommand({
       id: "sermonprint-edit-export",
@@ -1962,14 +2730,22 @@ var SermonPrintPlugin = class extends import_obsidian5.Plugin {
       name: "Compare Preview and PDF Pagination",
       callback: async () => this.comparePreviewAndPdfPagination()
     });
+    this.addCommand({
+      id: "sermonprint-print-preview",
+      name: "Print Preview",
+      callback: async () => openSermonPrintPrintPreview(this)
+    });
   }
   async exportWithMode(mode) {
     await this.exporter.exportCurrentNote(mode);
   }
+  async exportHtmlToPdf(html, basename2, outputPath) {
+    return this.exporter.exportHtml(html, basename2, outputPath);
+  }
   async openManuscriptView() {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
-      new import_obsidian5.Notice("Open a sermon note first.");
+      new import_obsidian6.Notice("Open a sermon note first.");
       return;
     }
     let leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_SERMONPRINT_MANUSCRIPT)[0];
@@ -1994,14 +2770,14 @@ var SermonPrintPlugin = class extends import_obsidian5.Plugin {
       `PDF path: ${pdfPath != null ? pdfPath : "unavailable"}`
     ];
     console.log(lines.join("\n"));
-    new import_obsidian5.Notice(lines.slice(1, 5).join("\n"), 12e3);
+    new import_obsidian6.Notice(lines.slice(1, 5).join("\n"), 12e3);
   }
-  getExportedPdfPath(basename) {
+  getExportedPdfPath(basename2) {
     const vaultPath = this.getVaultPath();
     if (!vaultPath) return null;
     const configuredFolder = (this.settings.pdfFolder || "Sermon PDFs").trim();
     const exportFolder = path4.isAbsolute(configuredFolder) ? configuredFolder : path4.join(vaultPath, configuredFolder);
-    return path4.join(exportFolder, `${basename} SermonPrint.pdf`);
+    return path4.join(exportFolder, `${basename2} SermonPrint.pdf`);
   }
   getVaultPath() {
     var _a, _b, _c;
@@ -2021,6 +2797,7 @@ var SermonPrintPlugin = class extends import_obsidian5.Plugin {
   onunload() {
     removeLayoutStyles();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_SERMONPRINT_MANUSCRIPT);
+    this.app.workspace.detachLeavesOfType(SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE);
   }
   refreshLayoutStyles() {
     injectLayoutStyles(this.settings);

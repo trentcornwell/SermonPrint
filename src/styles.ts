@@ -249,6 +249,16 @@ body .sermonprint-manuscript-editor ol {
 body .sermonprint-manuscript-editor li {
   margin-bottom: ${spacing.listItemBottom};
 }
+body .sermonprint-manuscript-editor .sermonprint-preview-page-guard {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+  user-select: none;
+}
 body .sermonprint-manuscript-editor div,
 body .sermonprint-manuscript-editor p,
 body .sermonprint-manuscript-editor li,
@@ -634,6 +644,67 @@ body .sp-page-content .sp-main-point {
 body .sp-page-content .sp-transition {
   font-weight: 700;
   color: #333;
+}
+
+/* SermonPrint Print Preview */
+body .sp-print-preview-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #d7d7d7;
+}
+
+body .sp-print-preview-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(245, 245, 245, .96);
+  border-bottom: 1px solid rgba(0, 0, 0, .12);
+}
+
+body .sp-print-preview-shell {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(280px, 38%) minmax(360px, 1fr);
+  gap: 0;
+}
+
+body .sp-print-preview-editor {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  border: 0;
+  border-right: 1px solid rgba(0, 0, 0, .16);
+  padding: 18px;
+  box-sizing: border-box;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: var(--font-monospace), monospace;
+  font-size: 14px;
+  line-height: 1.55;
+  outline: none;
+}
+
+body .sp-print-preview-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #cfcfcf;
+}
+
+@media (max-width: 860px) {
+  body .sp-print-preview-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(220px, 38%) minmax(320px, 1fr);
+  }
+
+  body .sp-print-preview-editor {
+    border-right: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, .16);
+  }
 }
 
 `;

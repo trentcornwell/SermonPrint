@@ -2,7 +2,7 @@ import esbuild from "esbuild";
 
 const prod = process.argv[2] !== "--watch";
 
-const context = await esbuild.context({
+const mainContext = await esbuild.context({
   entryPoints: ["src/main.ts"],
   bundle: true,
   external: ["obsidian", "electron", "child_process", "fs", "path", "os"],
@@ -15,9 +15,24 @@ const context = await esbuild.context({
   outfile: "main.js"
 });
 
+const manuscriptHtmlContext = await esbuild.context({
+  entryPoints: ["src/export/ManuscriptHtml.ts"],
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: "es2018",
+  logLevel: "info",
+  sourcemap: false,
+  treeShaking: true,
+  outfile: "ManuscriptHtml.js"
+});
+
 if (prod) {
-  await context.rebuild();
-  await context.dispose();
+  await mainContext.rebuild();
+  await manuscriptHtmlContext.rebuild();
+  await mainContext.dispose();
+  await manuscriptHtmlContext.dispose();
 } else {
-  await context.watch();
+  await mainContext.watch();
+  await manuscriptHtmlContext.watch();
 }

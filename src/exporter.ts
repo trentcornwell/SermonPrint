@@ -11,6 +11,55 @@ export type ExportMode = "pdf" | "booklet" | "large-print" | "half-sheet";
 export class SermonPrintExporter {
   constructor(private plugin: Plugin, private settings: SermonPrintSettings) {}
 
+  async exportHtml(html: string, basename: string, outputPath?: string): Promise<string | null> {
+    const vaultPath = this.getVaultPath();
+    if (!vaultPath) {
+      new Notice("Could not find vault path.");
+      return null;
+    }
+
+    const pluginDir = path.join(vaultPath, this.plugin.manifest.dir ?? ".obsidian/plugins/vision-sermon-toolkit");
+    const exporterScript = path.join(pluginDir, "exporter.js");
+    const defaultFolder = this.resolveExportFolder(vaultPath);
+    const pdfPath = outputPath || path.join(defaultFolder, `${basename} SermonPrint.pdf`);
+    const exportFolder = path.dirname(pdfPath);
+    fs.mkdirSync(exportFolder, { recursive: true });
+    const htmlPath = path.join(exportFolder, `${path.basename(pdfPath, ".pdf")}.sermonprint-preview.html`);
+
+    new Notice("Creating SermonPrint PDF...");
+
+    try {
+      let nodeExecutable: string;
+      try {
+        nodeExecutable = getNodeExecutable();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("SermonPrint export failed", error);
+        new Notice("SermonPrint could not start because Node.js is unavailable. Install Node.js or set the Node path before exporting.");
+        return null;
+      }
+
+      fs.writeFileSync(htmlPath, html, "utf8");
+      await this.runNode(nodeExecutable, exporterScript, ["--html", htmlPath, pdfPath]);
+      await this.waitForValidPdf(pdfPath);
+
+      new Notice(`SermonPrint PDF saved: ${pdfPath}`);
+      if (this.settings.openAfterExport) await this.tryOpenFile(pdfPath);
+      return pdfPath;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("SermonPrint export failed", error);
+      new Notice(message.includes("Node") ? "SermonPrint could not start because Node.js is unavailable. Install Node.js or set the Node path before exporting." : `SermonPrint export failed: ${message}`);
+      return null;
+    } finally {
+      try {
+        if (fs.existsSync(htmlPath)) fs.unlinkSync(htmlPath);
+      } catch (error) {
+        console.warn("SermonPrint could not remove temporary preview HTML.", error);
+      }
+    }
+  }
+
   async exportCurrentNote(mode: ExportMode): Promise<void> {
     const file = this.plugin.app.workspace.getActiveFile();
 

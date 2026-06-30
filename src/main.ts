@@ -6,6 +6,7 @@ import { injectLayoutStyles, removeLayoutStyles } from "./styles";
 import { SermonPrintExporter, type ExportMode } from "./exporter";
 import { SermonPrintManuscriptView, VIEW_TYPE_SERMONPRINT_MANUSCRIPT } from "./manuscriptView";
 import { ManuscriptEditorV2View, SERMONPRINT_V2_VIEW_TYPE, openManuscriptEngineV2 } from "./ui/ManuscriptEditorV2";
+import { SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE, SermonPrintPrintPreviewView, openSermonPrintPrintPreview } from "./ui/PrintPreviewView";
 
 export default class SermonPrintPlugin extends Plugin {
   settings: SermonPrintSettings;
@@ -32,6 +33,11 @@ export default class SermonPrintPlugin extends Plugin {
       (leaf: WorkspaceLeaf) => new ManuscriptEditorV2View(leaf, this)
     );
 
+    this.registerView(
+      SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE,
+      (leaf: WorkspaceLeaf) => new SermonPrintPrintPreviewView(leaf, this)
+    );
+
     this.refreshLayoutStyles();
 
     this.addCommand({
@@ -45,10 +51,20 @@ export default class SermonPrintPlugin extends Plugin {
       name: "Compare Preview and PDF Pagination",
       callback: async () => this.comparePreviewAndPdfPagination()
     });
+
+    this.addCommand({
+      id: "sermonprint-print-preview",
+      name: "Print Preview",
+      callback: async () => openSermonPrintPrintPreview(this)
+    });
   }
 
   async exportWithMode(mode: ExportMode): Promise<void> {
     await this.exporter.exportCurrentNote(mode);
+  }
+
+  async exportHtmlToPdf(html: string, basename: string, outputPath?: string): Promise<string | null> {
+    return this.exporter.exportHtml(html, basename, outputPath);
   }
 
   async openManuscriptView(): Promise<void> {
@@ -113,6 +129,7 @@ export default class SermonPrintPlugin extends Plugin {
   onunload(): void {
     removeLayoutStyles();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_SERMONPRINT_MANUSCRIPT);
+    this.app.workspace.detachLeavesOfType(SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE);
   }
 
   refreshLayoutStyles(): void {

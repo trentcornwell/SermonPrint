@@ -38,6 +38,8 @@ const STRUCTURE_INSERTS: StructureInsert[] = [
 // Shared metrics match Playwright's @page printable area. This remains as a
 // named final adjustment if Chromium's editable DOM and PDF engines diverge.
 const EXPORT_GUIDE_CALIBRATION_IN = 0;
+const PREVIEW_PAGE_GUARD_CLASS = "sermonprint-preview-page-guard";
+const PREVIEW_PAGE_GUARD_BUFFER_IN = 0.18;
 
 export interface ManuscriptPaginationDiagnostics {
   previewPageCount: number;
@@ -58,6 +60,7 @@ function inlineHtmlToMarkdown(el: HTMLElement): string {
 
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const child = node as HTMLElement;
+    if (child.classList.contains(PREVIEW_PAGE_GUARD_CLASS)) return;
     const tag = child.tagName.toLowerCase();
     const text = inlineHtmlToMarkdown(child);
 
@@ -79,6 +82,8 @@ function htmlToMarkdown(root: HTMLElement): string {
   }
 
   function walkBlock(el: Element): void {
+    if (el instanceof HTMLElement && el.classList.contains(PREVIEW_PAGE_GUARD_CLASS)) return;
+
     const tag = el.tagName.toLowerCase();
     const htmlEl = el as HTMLElement;
     const text = textOf(htmlEl).trim();
@@ -235,8 +240,10 @@ export class SermonPrintManuscriptView extends ItemView {
   async save(): Promise<void> {
     if (!this.file || !this.editorEl) return;
     const markdown = htmlToMarkdown(this.editorEl);
+    this.removePreviewPageGuards();
     await this.plugin.app.vault.modify(this.file, markdown);
     new Notice("SermonPrint manuscript saved.");
+    this.scheduleGuideUpdate();
   }
 
   formatBlock(tag: BlockTag): void {
@@ -316,6 +323,7 @@ export class SermonPrintManuscriptView extends ItemView {
 
     this.applyManuscriptVariables();
     this.guidesEl.empty();
+    this.removePreviewPageGuards();
 
     const metrics = getManuscriptLayoutMetrics(this.plugin.settings);
     const guideOffsetIn = parseInches(this.plugin.settings.pageGuideOffset, 0);
@@ -326,12 +334,47 @@ export class SermonPrintManuscriptView extends ItemView {
     const pages = Math.max(1, Math.ceil(editableContentHeight / printableHeightPx));
 
     for (let i = 1; i < pages; i++) {
+      const guideTop = marginPx + i * printableHeightPx + guideOffsetPx;
+      this.insertPreviewPageGuard(guideTop);
+
       const marker = this.guidesEl.createDiv({ cls: "sermonprint-page-break-marker" });
-      marker.style.top = `${marginPx + i * printableHeightPx + guideOffsetPx}px`;
+      marker.style.top = `${guideTop}px`;
       marker.createSpan({ text: `Page ${i + 1}` });
     }
 
     this.pageCountEl.setText(`Page 1 of ${pages}`);
+  }
+
+  private removePreviewPageGuards(): void {
+    this.editorEl?.querySelectorAll(`.${PREVIEW_PAGE_GUARD_CLASS}`).forEach((guard) => guard.remove());
+  }
+
+  private insertPreviewPageGuard(guideTop: number): void {
+    if (!this.editorEl) return;
+
+    const blocks = Array.from(this.editorEl.children).filter((child): child is HTMLElement => {
+      return child instanceof HTMLElement && !child.classList.contains(PREVIEW_PAGE_GUARD_CLASS);
+    });
+
+    const crossingBlock = blocks.find((block) => {
+      const blockTop = block.offsetTop;
+      const blockBottom = block.offsetTop + block.offsetHeight;
+      return blockTop < guideTop && blockBottom > guideTop;
+    });
+
+    if (!crossingBlock) return;
+
+    const guard = document.createElement("div");
+    guard.className = PREVIEW_PAGE_GUARD_CLASS;
+    guard.contentEditable = "false";
+    guard.setAttribute("aria-hidden", "true");
+    guard.setAttribute("data-sermonprint-preview-only", "true");
+
+    const bufferPx = PREVIEW_PAGE_GUARD_BUFFER_IN * INCH_TO_PX;
+    const neededHeight = Math.max(bufferPx, guideTop - crossingBlock.offsetTop + bufferPx);
+    guard.style.height = `${neededHeight}px`;
+
+    crossingBlock.before(guard);
   }
 
   getPaginationDiagnostics(): ManuscriptPaginationDiagnostics | null {
