@@ -114,10 +114,10 @@ export function preserveIntentionalBlankLines(markdown: string): string {
 
 function escapeHtml(value: string): string {
   return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function renderInlineMarkdown(value: string): string {

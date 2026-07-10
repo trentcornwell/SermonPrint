@@ -127,7 +127,7 @@ function preserveIntentionalBlankLines(markdown) {
   return String(markdown).replace(/\n{3,}/g, '\n\n<div class="sp-blank-line"></div>\n\n');
 }
 function escapeHtml(value) {
-  return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function renderInlineMarkdown(value) {
   const escaped = escapeHtml(value);

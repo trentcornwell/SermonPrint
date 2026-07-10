@@ -49,13 +49,17 @@ if (args[0] === "--html") {
 }
 
 (async () => {
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
-  await page.setContent(documentHtml, { waitUntil: "networkidle" });
-  await page.pdf({
-    path: outputPath,
-    printBackground: true,
-    preferCSSPageSize: true
-  });
-  await browser.close();
+  let browser;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.setContent(documentHtml, { waitUntil: "networkidle" });
+    await page.pdf({
+      path: outputPath,
+      printBackground: true,
+      preferCSSPageSize: true
+    });
+  } finally {
+    if (browser) await browser.close();
+  }
 })();

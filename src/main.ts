@@ -11,6 +11,7 @@ import { SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE, SermonPrintEditablePrintP
 export default class SermonPrintPlugin extends Plugin {
   settings: SermonPrintSettings;
   exporter: SermonPrintExporter;
+  private statusBarEl: HTMLElement | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -33,6 +34,10 @@ export default class SermonPrintPlugin extends Plugin {
     );
 
     this.refreshLayoutStyles();
+
+    this.statusBarEl = this.addStatusBarItem();
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateStatusBar()));
+    this.updateStatusBar();
 
     this.addCommand({
       id: "sermonprint-edit-export",
@@ -77,6 +82,25 @@ export default class SermonPrintPlugin extends Plugin {
 
     await leaf.setViewState({ type: VIEW_TYPE_SERMONPRINT_MANUSCRIPT, active: true });
     this.app.workspace.revealLeaf(leaf);
+  }
+
+  /**
+   * Reflects the Legacy Edit & Export view's live pagination estimate, since
+   * that is the only view that currently computes a page count. Other views
+   * do not report diagnostics, so the status bar is cleared while they are
+   * the active leaf.
+   */
+  updateStatusBar(): void {
+    if (!this.statusBarEl) return;
+
+    if (!this.settings.showPageNumbers) {
+      this.statusBarEl.setText("");
+      return;
+    }
+
+    const manuscriptView = this.app.workspace.getLeavesOfType(VIEW_TYPE_SERMONPRINT_MANUSCRIPT)[0]?.view as SermonPrintManuscriptView | undefined;
+    const diagnostics = manuscriptView?.getPaginationDiagnostics();
+    this.statusBarEl.setText(diagnostics ? `SermonPrint: ~${diagnostics.previewPageCount} pg` : "");
   }
 
   async comparePreviewAndPdfPagination(): Promise<void> {

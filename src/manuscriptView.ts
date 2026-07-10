@@ -343,6 +343,7 @@ export class SermonPrintManuscriptView extends ItemView {
     }
 
     this.pageCountEl.setText(`Page 1 of ${pages}`);
+    this.plugin.updateStatusBar();
   }
 
   private removePreviewPageGuards(): void {

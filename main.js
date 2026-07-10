@@ -131,7 +131,7 @@ var SermonPrintSettingTab = class extends import_obsidian.PluginSettingTab {
     this.addToggle("Show page guides", "Show a page frame and page-break marker while writing.", "showPageGuides");
     this.addToggle("Show page shadow", "Show a real paper card in Sermon Layout.", "showPageShadow");
     this.addToggle("Show margin ruler", "Show the printable margin area while writing.", "showMarginRuler");
-    this.addToggle("Show live page numbers", "Show approximate page count in the status bar.", "showPageNumbers");
+    this.addToggle("Show live page numbers", "Show the Legacy Edit & Export view's approximate page count in the status bar.", "showPageNumbers");
     this.addToggle("Keep-together rules", "Keep headings, quotes, transitions, and lists together when possible.", "keepTogetherRules");
     this.addToggle("Open PDF after export", "Automatically open the finished PDF after SermonPrint creates it.", "openAfterExport");
   }
@@ -271,7 +271,7 @@ function cleanMarkdown(value) {
   return String(value).replace(/^kangaroo names\s*$/gim, "");
 }
 function escapeHtml(value) {
-  return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function renderInlineMarkdown(value) {
   const escaped = escapeHtml(value);
@@ -2207,6 +2207,7 @@ var SermonPrintManuscriptView = class extends import_obsidian3.ItemView {
       marker.createSpan({ text: `Page ${i + 1}` });
     }
     this.pageCountEl.setText(`Page 1 of ${pages}`);
+    this.plugin.updateStatusBar();
   }
   removePreviewPageGuards() {
     var _a;
@@ -2707,6 +2708,10 @@ async function openSermonPrintEditablePrintPreview(plugin) {
 
 // src/main.ts
 var SermonPrintPlugin = class extends import_obsidian6.Plugin {
+  constructor() {
+    super(...arguments);
+    this.statusBarEl = null;
+  }
   async onload() {
     await this.loadSettings();
     this.exporter = new SermonPrintExporter(this, this.settings);
@@ -2724,6 +2729,9 @@ var SermonPrintPlugin = class extends import_obsidian6.Plugin {
       (leaf) => new SermonPrintEditablePrintPreviewView(leaf, this)
     );
     this.refreshLayoutStyles();
+    this.statusBarEl = this.addStatusBarItem();
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateStatusBar()));
+    this.updateStatusBar();
     this.addCommand({
       id: "sermonprint-edit-export",
       name: "SermonPrint: Legacy Edit & Export",
@@ -2759,6 +2767,23 @@ var SermonPrintPlugin = class extends import_obsidian6.Plugin {
     if (!leaf) leaf = this.app.workspace.getLeaf(true);
     await leaf.setViewState({ type: VIEW_TYPE_SERMONPRINT_MANUSCRIPT, active: true });
     this.app.workspace.revealLeaf(leaf);
+  }
+  /**
+   * Reflects the Legacy Edit & Export view's live pagination estimate, since
+   * that is the only view that currently computes a page count. Other views
+   * do not report diagnostics, so the status bar is cleared while they are
+   * the active leaf.
+   */
+  updateStatusBar() {
+    var _a;
+    if (!this.statusBarEl) return;
+    if (!this.settings.showPageNumbers) {
+      this.statusBarEl.setText("");
+      return;
+    }
+    const manuscriptView = (_a = this.app.workspace.getLeavesOfType(VIEW_TYPE_SERMONPRINT_MANUSCRIPT)[0]) == null ? void 0 : _a.view;
+    const diagnostics = manuscriptView == null ? void 0 : manuscriptView.getPaginationDiagnostics();
+    this.statusBarEl.setText(diagnostics ? `SermonPrint: ~${diagnostics.previewPageCount} pg` : "");
   }
   async comparePreviewAndPdfPagination() {
     var _a, _b, _c;
