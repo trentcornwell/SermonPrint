@@ -2,7 +2,6 @@ import { ItemView, MarkdownRenderer, Notice, TFile, WorkspaceLeaf } from "obsidi
 import SermonPrintPlugin from "./main";
 import { getPagePreset, INCH_TO_PX, parseInches, parsePositiveInches, parsePositivePoints } from "./engine/Layout";
 import { getManuscriptLayoutMetrics } from "./export/ManuscriptHtml";
-import { SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE, SermonPrintEditablePrintPreviewView } from "./ui/EditablePrintPreviewView";
 
 export const VIEW_TYPE_SERMONPRINT_MANUSCRIPT = "sermonprint-manuscript-view";
 
@@ -140,7 +139,6 @@ export class SermonPrintManuscriptView extends ItemView {
 
     const toolbar = container.createDiv({ cls: "sermonprint-toolbar" });
     this.buildToolbar(toolbar);
-    this.buildAccuracyNotice(container);
 
     const stage = container.createDiv({ cls: "sermonprint-manuscript-stage" });
     const paper = stage.createDiv({ cls: "sermonprint-manuscript-paper" });
@@ -213,43 +211,6 @@ export class SermonPrintManuscriptView extends ItemView {
     };
 
     this.pageCountEl = toolbar.createSpan({ text: "Page 1 of 1", cls: "sermonprint-page-count" });
-  }
-
-  private buildAccuracyNotice(container: HTMLElement): void {
-    const notice = container.createDiv({ cls: "sermonprint-legacy-accuracy-notice" });
-    notice.style.display = "flex";
-    notice.style.alignItems = "center";
-    notice.style.gap = "8px";
-    notice.style.padding = "4px 10px";
-    notice.style.fontSize = "12px";
-    notice.style.opacity = "0.8";
-
-    notice.createSpan({
-      text: "Legacy page guides are approximate. For page breaks that match PDF export, use SermonPrint."
-    });
-
-    notice.createEl("button", { text: "Open Accurate Print Editor" }).onclick = () => this.openAccuratePrintEditor();
-  }
-
-  /**
-   * Opens the Editable Print Preview view for this same note. Uses the
-   * file this view already loaded (this.file) rather than the currently
-   * active leaf, since the active leaf when this button is clicked is this
-   * Legacy view itself, not a markdown editor - relying on
-   * getActiveViewOfType(MarkdownView) here would fail to find a file.
-   */
-  private async openAccuratePrintEditor(): Promise<void> {
-    if (!this.file) {
-      new Notice("Open a sermon note first.");
-      return;
-    }
-
-    const leaf = this.plugin.app.workspace.getLeaf("tab");
-    await leaf.setViewState({ type: SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE, active: true });
-
-    const view = leaf.view as SermonPrintEditablePrintPreviewView;
-    await view.setFile(this.file);
-    this.plugin.app.workspace.revealLeaf(leaf);
   }
 
   private async setPageSize(value: "half-sheet" | "letter" | "a4" | "legal" | "custom"): Promise<void> {

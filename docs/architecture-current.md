@@ -3,28 +3,39 @@
 This document describes what is actually wired up and running today. It does not describe
 planned or aspirational features.
 
-## Single editing workflow: the "SermonPrint" command
+## Single editing workflow: the "Open" command
 
-The plugin exposes exactly one user-facing command, `sermonprint-editable-print-preview`,
-labeled **"SermonPrint"** in the command palette. It always opens
-`SermonPrintEditablePrintPreviewView` (`src/ui/EditablePrintPreviewView.ts`) - see
-`openSermonPrintEditablePrintPreview()` and the single `addCommand()` call in `onload()` in
-`src/main.ts`. Its paginated layout comes from `buildPaginatedManuscriptHtml()` running
-`paginationScript()` (see below), which is the same HTML and the same script used to produce
-the exported PDF/booklet via `exportHtml()`/`exportHtmlBooklet()`. That makes its on-screen
-page layout the authoritative preview of PDF and booklet export - not an estimate of it. Its
-view tab is titled "SermonPrint" (`getDisplayText()`).
+The plugin exposes exactly one user-facing command: ID `sermonprint-editable-print-preview`,
+name `"Open"`, which Obsidian displays in the command palette as **"SermonPrint: Open"** (the
+plugin name is not repeated inside the command's own `name` field - Obsidian prefixes it
+automatically). It always opens `SermonPrintEditablePrintPreviewView`
+(`src/ui/EditablePrintPreviewView.ts`) - see `openSermonPrintEditablePrintPreview()` and the
+single `addCommand()` call in `onload()` in `src/main.ts`. The normal workflow is: open a
+sermon note, run "SermonPrint: Open", edit in the paginated layout, save, export PDF or
+booklet.
+
+Its paginated layout comes from `buildPaginatedManuscriptHtml()` running `paginationScript()`
+(see below), which is the same HTML and the same script used to produce the exported
+PDF/booklet via `exportHtml()`/`exportHtmlBooklet()`. That makes its on-screen page layout the
+authoritative preview of PDF and booklet export - not an estimate of it. Its view tab is
+titled "SermonPrint" (`getDisplayText()`).
 
 Two other views still exist and are still registered with `registerView()` for compatibility -
 `SermonPrintPrintPreviewView` (`src/ui/PrintPreviewView.ts`, a read-only version of the same
 paginated layout) and `SermonPrintManuscriptView` (`src/manuscriptView.ts`, the original
 contentEditable manuscript editor, still referred to internally as "Legacy Edit & Export") -
-but neither has a command anymore. Registration is kept so a workspace layout saved before this
-change (which may still reference one of those view types by ID) continues to load without
-erroring, and so the Legacy view's own "Open Accurate Print Editor" button keeps working. The
-Legacy view is reachable only through a leaf that already has it open; it shows a small,
-non-blocking notice explaining that its page guides are approximate and linking back to the
-SermonPrint editor. It is not part of the normal, promoted workflow.
+but neither has a command anymore, and the Legacy view no longer has an in-view "Open Accurate
+Print Editor" notice/button pointing back to the primary editor. Registration is kept so a
+workspace layout saved before this change (which may still reference one of those view types by
+ID) continues to load without erroring. Both are reachable only through a leaf that already has
+one open; neither is part of the normal, promoted workflow.
+
+The status bar no longer shows a live page-count estimate. It previously read the Legacy view's
+`getPaginationDiagnostics()`, which only reflected that view's own approximate pagination, not
+the accurate one. `SermonPrintPlugin.updateStatusBar()` (`src/main.ts`) is now a no-op, kept
+only so its existing call sites (`settings.ts`, `manuscriptView.ts`) don't need to change. This
+was deliberately not replaced with a different page-count estimator - the SermonPrint editor
+already shows real, final pages in place.
 
 ## Active preview and export pipeline
 

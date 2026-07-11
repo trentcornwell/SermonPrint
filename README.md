@@ -2,19 +2,21 @@
 
 SermonPrint is an Obsidian plugin for writing, editing, and exporting sermon manuscripts.
 
-## Command
+## Workflow
 
-- **SermonPrint** — opens the SermonPrint editor. Its paginated page layout is produced by the
-  same code that generates the exported PDF/booklet, so the page breaks you see while editing
-  are the page breaks you get on export.
+1. Open a sermon note.
+2. Run **SermonPrint: Open** from the command palette.
+3. Edit your sermon directly in the paginated layout — the pages you see are the pages you get.
+4. Save.
+5. Export PDF or booklet from the same view.
 
-This is the only command SermonPrint exposes. Earlier builds also listed separate "Print
-Preview" and "Legacy Edit & Export" commands; those views still exist internally (so old
-workspace layouts that reference them keep loading), but they are no longer part of the normal
-workflow and no longer appear in the command palette. The old Legacy manuscript editor is still
-reachable from a note that already has it open — it shows a small notice with a link back to
-the SermonPrint editor, since its own page guides are only an approximation and are not
-guaranteed to match the exported PDF.
+`SermonPrint: Open` is the only command SermonPrint exposes. Its paginated page layout is
+produced by the same code that generates the exported PDF/booklet, so the page breaks you see
+while editing are the page breaks you get on export.
+
+Earlier builds also listed separate "Print Preview" and "Legacy Edit & Export" commands; those
+views still exist internally (so old workspace layouts that reference them keep loading), but
+they are no longer part of the normal workflow and no longer appear in the command palette.
 
 ## Default page size
 

@@ -11,7 +11,6 @@ import { SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE, SermonPrintEditablePrintP
 export default class SermonPrintPlugin extends Plugin {
   settings: SermonPrintSettings;
   exporter: SermonPrintExporter;
-  private statusBarEl: HTMLElement | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -35,27 +34,21 @@ export default class SermonPrintPlugin extends Plugin {
 
     this.refreshLayoutStyles();
 
-    this.statusBarEl = this.addStatusBarItem();
-    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateStatusBar()));
-    this.updateStatusBar();
-
-    // The only user-facing command. Always opens the Editable Print Layout
-    // editor, whose page layout is produced by buildPaginatedManuscriptHtml()
-    // + paginationScript() - the same code path used for PDF/booklet export
+    // The only user-facing command, displayed by Obsidian as
+    // "SermonPrint: Open". Always opens the Editable Print Preview editor,
+    // whose page layout is produced by buildPaginatedManuscriptHtml() +
+    // paginationScript() - the same code path used for PDF/booklet export
     // (see exportHtml()/exportHtmlBooklet() below) - so what the user edits
-    // is what gets exported. The command ID is kept as-is (it previously
-    // shipped as "SermonPrint: Edit Sermon in Print Layout") so any existing
+    // is what gets exported. The command ID is kept as-is so any existing
     // hotkey binding keeps working.
     //
-    // The Print Preview and Legacy Edit & Export commands have been removed
-    // from the command palette. Their view types stay registered above (and
-    // openManuscriptView() below is kept) purely so previously-saved
-    // workspace layouts that still reference those leaves keep working and
-    // so the Legacy view's own in-view "Open Accurate Print Editor" link
-    // keeps functioning - neither is exposed as a normal command anymore.
+    // Print Preview and Legacy Edit & Export have no command anymore. Their
+    // view types stay registered above (and openManuscriptView() below is
+    // kept) purely so previously-saved workspace layouts that still
+    // reference those leaves keep loading without erroring.
     this.addCommand({
       id: "sermonprint-editable-print-preview",
-      name: "SermonPrint",
+      name: "Open",
       callback: async () => openSermonPrintEditablePrintPreview(this)
     });
   }
@@ -87,23 +80,15 @@ export default class SermonPrintPlugin extends Plugin {
   }
 
   /**
-   * Reflects the Legacy Edit & Export view's live pagination estimate, since
-   * that is the only view that currently computes a page count. Other views
-   * do not report diagnostics, so the status bar is cleared while they are
-   * the active leaf.
+   * No-op. This used to show the Legacy Edit & Export view's approximate
+   * page-count estimate in the status bar. That view is no longer the
+   * primary workflow, and the accurate SermonPrint editor already shows
+   * real, final pages in place - there is no separate estimate to show and
+   * this is intentionally not replaced with another one. Kept as a callable
+   * no-op so existing call sites (settings.ts, manuscriptView.ts) don't need
+   * to change.
    */
-  updateStatusBar(): void {
-    if (!this.statusBarEl) return;
-
-    if (!this.settings.showPageNumbers) {
-      this.statusBarEl.setText("");
-      return;
-    }
-
-    const manuscriptView = this.app.workspace.getLeavesOfType(VIEW_TYPE_SERMONPRINT_MANUSCRIPT)[0]?.view as SermonPrintManuscriptView | undefined;
-    const diagnostics = manuscriptView?.getPaginationDiagnostics();
-    this.statusBarEl.setText(diagnostics ? `SermonPrint: ~${diagnostics.previewPageCount} pg` : "");
-  }
+  updateStatusBar(): void {}
 
   async comparePreviewAndPdfPagination(): Promise<void> {
     const file = this.app.workspace.getActiveFile();

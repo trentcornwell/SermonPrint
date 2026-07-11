@@ -16,12 +16,6 @@ export interface SermonPrintSettings {
   showPageShadow: boolean;
   showPageBreakLabels: boolean;
   showMarginRuler: boolean;
-  /**
-   * Controls the plugin's status bar item, which shows the Legacy Edit &
-   * Export view's approximate page count while that view is active. Other
-   * views do not report a page count, so the status bar is blank for them.
-   */
-  showPageNumbers: boolean;
   keepTogetherRules: boolean;
   autoPageBalancing: boolean;
   openAfterExport: boolean;
@@ -43,7 +37,6 @@ export const DEFAULT_SETTINGS: SermonPrintSettings = {
   showPageShadow: true,
   showPageBreakLabels: true,
   showMarginRuler: true,
-  showPageNumbers: true,
   keepTogetherRules: true,
   autoPageBalancing: true,
   openAfterExport: true,
@@ -77,13 +70,12 @@ export class SermonPrintSettingTab extends PluginSettingTab {
     this.addTextSetting("Bible verse color", "Used by the manuscript toolbar. Example: #8b0000", "bibleVerseColor");
     new Setting(containerEl)
       .setName("Reset page view")
-      .setDesc("Turns on the paper view, red page guides, margin ruler, live page numbers, and keep-together rules.")
+      .setDesc("Turns on the paper view, red page guides, margin ruler, and keep-together rules.")
       .addButton((button) =>
         button.setButtonText("Reset layout view").onClick(async () => {
           this.plugin.settings.showPageGuides = true;
           this.plugin.settings.showPageShadow = true;
           this.plugin.settings.showMarginRuler = true;
-          this.plugin.settings.showPageNumbers = true;
           this.plugin.settings.keepTogetherRules = true;
           this.plugin.settings.autoPageBalancing = true;
           await this.plugin.saveSettings();
@@ -94,7 +86,6 @@ export class SermonPrintSettingTab extends PluginSettingTab {
     this.addToggle("Show page guides", "Show a page frame and page-break marker while writing.", "showPageGuides");
     this.addToggle("Show page shadow", "Show a real paper card in Sermon Layout.", "showPageShadow");
     this.addToggle("Show margin ruler", "Show the printable margin area while writing.", "showMarginRuler");
-    this.addToggle("Show live page numbers", "Show an approximate page count in the status bar.", "showPageNumbers");
     this.addToggle("Keep-together rules", "Keep headings, quotes, transitions, and lists together when possible.", "keepTogetherRules");
     this.addToggle("Open PDF after export", "Automatically open the finished PDF after SermonPrint creates it.", "openAfterExport");
   }
