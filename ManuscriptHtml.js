@@ -416,7 +416,15 @@ ${balanceCss(normalized.autoPageBalancing)}
   }
 
   .sp-print-page {
-    box-shadow: 0 6px 20px rgba(0, 0, 0, .16);
+    /* Screen-only edge cue: a soft inset fade near the top/bottom of each
+       page's own boundary, ~18-20px deep, so text doesn't read as pressed
+       against the page edge. Inset box-shadow paints inside the existing
+       box without adding size, so .sp-print-page / .sp-print-page-content
+       dimensions and pagination are unaffected. */
+    box-shadow:
+      0 6px 20px rgba(0, 0, 0, .16),
+      inset 0 20px 18px -18px rgba(0, 0, 0, .10),
+      inset 0 -20px 18px -18px rgba(0, 0, 0, .10);
   }
 
   .sp-print-page-label {
