@@ -20,7 +20,7 @@ export class SermonPrintEditablePrintPreviewView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "SermonPrint Editable Print Preview";
+    return "SermonPrint";
   }
 
   async onOpen(): Promise<void> {
@@ -241,6 +241,11 @@ export class SermonPrintEditablePrintPreviewView extends ItemView {
     clone.querySelectorAll<HTMLElement>(".sp-print-page-content").forEach((el) => {
       el.removeAttribute("spellcheck");
     });
+    // Export must use the pages exactly as currently paginated/edited in the
+    // iframe. Without this, Playwright would re-run this script tag against
+    // the cloned document and re-paginate from .sp-print-source, discarding
+    // in-place edits and letting page breaks drift from what's on screen.
+    clone.querySelectorAll("script").forEach((el) => el.remove());
 
     return `<!doctype html>\n${clone.outerHTML}`;
   }

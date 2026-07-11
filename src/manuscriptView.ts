@@ -225,7 +225,7 @@ export class SermonPrintManuscriptView extends ItemView {
     notice.style.opacity = "0.8";
 
     notice.createSpan({
-      text: "Legacy page guides are approximate. For page breaks that match PDF export, use Edit Sermon in Print Layout."
+      text: "Legacy page guides are approximate. For page breaks that match PDF export, use SermonPrint."
     });
 
     notice.createEl("button", { text: "Open Accurate Print Editor" }).onclick = () => this.openAccuratePrintEditor();

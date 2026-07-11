@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS, SermonPrintSettings, SermonPrintSettingTab } from "./
 import { injectLayoutStyles, removeLayoutStyles } from "./styles";
 import { SermonPrintExporter, type ExportMode } from "./exporter";
 import { SermonPrintManuscriptView, VIEW_TYPE_SERMONPRINT_MANUSCRIPT } from "./manuscriptView";
-import { SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE, SermonPrintPrintPreviewView, openSermonPrintPrintPreview } from "./ui/PrintPreviewView";
+import { SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE, SermonPrintPrintPreviewView } from "./ui/PrintPreviewView";
 import { SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE, SermonPrintEditablePrintPreviewView, openSermonPrintEditablePrintPreview } from "./ui/EditablePrintPreviewView";
 
 export default class SermonPrintPlugin extends Plugin {
@@ -39,28 +39,24 @@ export default class SermonPrintPlugin extends Plugin {
     this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateStatusBar()));
     this.updateStatusBar();
 
-    // Primary editing command: page layout here is produced by
-    // buildPaginatedManuscriptHtml() + paginationScript(), the same code
-    // path used for PDF/booklet export (see exportHtml()/exportHtmlBooklet()
-    // below), so what the user edits is what gets exported.
+    // The only user-facing command. Always opens the Editable Print Layout
+    // editor, whose page layout is produced by buildPaginatedManuscriptHtml()
+    // + paginationScript() - the same code path used for PDF/booklet export
+    // (see exportHtml()/exportHtmlBooklet() below) - so what the user edits
+    // is what gets exported. The command ID is kept as-is (it previously
+    // shipped as "SermonPrint: Edit Sermon in Print Layout") so any existing
+    // hotkey binding keeps working.
+    //
+    // The Print Preview and Legacy Edit & Export commands have been removed
+    // from the command palette. Their view types stay registered above (and
+    // openManuscriptView() below is kept) purely so previously-saved
+    // workspace layouts that still reference those leaves keep working and
+    // so the Legacy view's own in-view "Open Accurate Print Editor" link
+    // keeps functioning - neither is exposed as a normal command anymore.
     this.addCommand({
       id: "sermonprint-editable-print-preview",
-      name: "SermonPrint: Edit Sermon in Print Layout",
+      name: "SermonPrint",
       callback: async () => openSermonPrintEditablePrintPreview(this)
-    });
-
-    this.addCommand({
-      id: "sermonprint-print-preview",
-      name: "SermonPrint: Print Preview",
-      callback: async () => openSermonPrintPrintPreview(this)
-    });
-
-    // Kept for direct access. Its page guides are an approximate estimate,
-    // not derived from the export pipeline - see the in-view notice.
-    this.addCommand({
-      id: "sermonprint-edit-export",
-      name: "SermonPrint: Legacy Edit & Export",
-      callback: async () => this.openManuscriptView()
     });
   }
 
@@ -118,7 +114,7 @@ export default class SermonPrintPlugin extends Plugin {
 
     const lines = [
       "SermonPrint pagination diagnostics",
-      `Preview page count: ${preview?.previewPageCount ?? "unavailable - open Legacy Edit & Export"}`,
+      `Preview page count: ${preview?.previewPageCount ?? "unavailable"}`,
       `PDF page count: ${pdfPageCount ?? "unavailable - export PDF first"}`,
       `Preview effective page step: ${preview ? `${preview.previewEffectivePageStepIn.toFixed(3)}in` : "unavailable"}`,
       `Export page size/margins: ${preview ? `${preview.exportPageSize}, margin ${preview.exportMargin}` : `${this.settings.pageWidth} x ${this.settings.pageHeight}, margin ${this.settings.margin}`}`,

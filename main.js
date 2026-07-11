@@ -131,7 +131,7 @@ var SermonPrintSettingTab = class extends import_obsidian.PluginSettingTab {
     this.addToggle("Show page guides", "Show a page frame and page-break marker while writing.", "showPageGuides");
     this.addToggle("Show page shadow", "Show a real paper card in Sermon Layout.", "showPageShadow");
     this.addToggle("Show margin ruler", "Show the printable margin area while writing.", "showMarginRuler");
-    this.addToggle("Show live page numbers", "Show the Legacy Edit & Export view's approximate page count in the status bar.", "showPageNumbers");
+    this.addToggle("Show live page numbers", "Show an approximate page count in the status bar.", "showPageNumbers");
     this.addToggle("Keep-together rules", "Keep headings, quotes, transitions, and lists together when possible.", "keepTogetherRules");
     this.addToggle("Open PDF after export", "Automatically open the finished PDF after SermonPrint creates it.", "openAfterExport");
   }
@@ -1946,7 +1946,7 @@ var SermonPrintEditablePrintPreviewView = class extends import_obsidian3.ItemVie
     return SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE;
   }
   getDisplayText() {
-    return "SermonPrint Editable Print Preview";
+    return "SermonPrint";
   }
   async onOpen() {
     this.containerEl.empty();
@@ -2132,6 +2132,7 @@ var SermonPrintEditablePrintPreviewView = class extends import_obsidian3.ItemVie
     clone.querySelectorAll(".sp-print-page-content").forEach((el) => {
       el.removeAttribute("spellcheck");
     });
+    clone.querySelectorAll("script").forEach((el) => el.remove());
     return `<!doctype html>
 ${clone.outerHTML}`;
   }
@@ -2402,7 +2403,7 @@ var SermonPrintManuscriptView = class extends import_obsidian4.ItemView {
     notice.style.fontSize = "12px";
     notice.style.opacity = "0.8";
     notice.createSpan({
-      text: "Legacy page guides are approximate. For page breaks that match PDF export, use Edit Sermon in Print Layout."
+      text: "Legacy page guides are approximate. For page breaks that match PDF export, use SermonPrint."
     });
     notice.createEl("button", { text: "Open Accurate Print Editor" }).onclick = () => this.openAccuratePrintEditor();
   }
@@ -2727,18 +2728,6 @@ var SermonPrintPrintPreviewView = class extends import_obsidian5.ItemView {
     return filePath.toLowerCase().endsWith(".pdf") ? filePath : `${filePath}.pdf`;
   }
 };
-async function openSermonPrintPrintPreview(plugin) {
-  const active = plugin.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
-  const file = active == null ? void 0 : active.file;
-  if (!file) {
-    new import_obsidian5.Notice("Open a sermon note first.");
-    return;
-  }
-  const leaf = plugin.app.workspace.getLeaf("tab");
-  await leaf.setViewState({ type: SERMONPRINT_PRINT_PREVIEW_VIEW_TYPE, active: true });
-  const view = leaf.view;
-  await view.setFile(file);
-}
 
 // src/main.ts
 var SermonPrintPlugin = class extends import_obsidian6.Plugin {
@@ -2768,18 +2757,8 @@ var SermonPrintPlugin = class extends import_obsidian6.Plugin {
     this.updateStatusBar();
     this.addCommand({
       id: "sermonprint-editable-print-preview",
-      name: "SermonPrint: Edit Sermon in Print Layout",
+      name: "SermonPrint",
       callback: async () => openSermonPrintEditablePrintPreview(this)
-    });
-    this.addCommand({
-      id: "sermonprint-print-preview",
-      name: "SermonPrint: Print Preview",
-      callback: async () => openSermonPrintPrintPreview(this)
-    });
-    this.addCommand({
-      id: "sermonprint-edit-export",
-      name: "SermonPrint: Legacy Edit & Export",
-      callback: async () => this.openManuscriptView()
     });
   }
   async exportWithMode(mode) {
@@ -2828,7 +2807,7 @@ var SermonPrintPlugin = class extends import_obsidian6.Plugin {
     const pdfPageCount = pdfPath && fs3.existsSync(pdfPath) ? this.readPdfPageCount(pdfPath) : null;
     const lines = [
       "SermonPrint pagination diagnostics",
-      `Preview page count: ${(_c = preview == null ? void 0 : preview.previewPageCount) != null ? _c : "unavailable - open Legacy Edit & Export"}`,
+      `Preview page count: ${(_c = preview == null ? void 0 : preview.previewPageCount) != null ? _c : "unavailable"}`,
       `PDF page count: ${pdfPageCount != null ? pdfPageCount : "unavailable - export PDF first"}`,
       `Preview effective page step: ${preview ? `${preview.previewEffectivePageStepIn.toFixed(3)}in` : "unavailable"}`,
       `Export page size/margins: ${preview ? `${preview.exportPageSize}, margin ${preview.exportMargin}` : `${this.settings.pageWidth} x ${this.settings.pageHeight}, margin ${this.settings.margin}`}`,

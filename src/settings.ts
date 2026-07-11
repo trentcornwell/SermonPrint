@@ -94,7 +94,7 @@ export class SermonPrintSettingTab extends PluginSettingTab {
     this.addToggle("Show page guides", "Show a page frame and page-break marker while writing.", "showPageGuides");
     this.addToggle("Show page shadow", "Show a real paper card in Sermon Layout.", "showPageShadow");
     this.addToggle("Show margin ruler", "Show the printable margin area while writing.", "showMarginRuler");
-    this.addToggle("Show live page numbers", "Show the Legacy Edit & Export view's approximate page count in the status bar.", "showPageNumbers");
+    this.addToggle("Show live page numbers", "Show an approximate page count in the status bar.", "showPageNumbers");
     this.addToggle("Keep-together rules", "Keep headings, quotes, transitions, and lists together when possible.", "keepTogetherRules");
     this.addToggle("Open PDF after export", "Automatically open the finished PDF after SermonPrint creates it.", "openAfterExport");
   }

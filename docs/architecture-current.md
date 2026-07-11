@@ -3,20 +3,28 @@
 This document describes what is actually wired up and running today. It does not describe
 planned or aspirational features.
 
-## Recommended editing view
+## Single editing workflow: the "SermonPrint" command
 
-**"SermonPrint: Edit Sermon in Print Layout"** (`SermonPrintEditablePrintPreviewView`,
-`src/ui/EditablePrintPreviewView.ts`) is the recommended way to edit a sermon. Its paginated
-layout comes from `buildPaginatedManuscriptHtml()` running `paginationScript()` (see below),
-which is the same HTML and the same script used to produce the exported PDF/booklet via
-`exportHtml()`/`exportHtmlBooklet()`. That makes its on-screen page layout the authoritative
-preview of PDF and booklet export - not an estimate of it.
+The plugin exposes exactly one user-facing command, `sermonprint-editable-print-preview`,
+labeled **"SermonPrint"** in the command palette. It always opens
+`SermonPrintEditablePrintPreviewView` (`src/ui/EditablePrintPreviewView.ts`) - see
+`openSermonPrintEditablePrintPreview()` and the single `addCommand()` call in `onload()` in
+`src/main.ts`. Its paginated layout comes from `buildPaginatedManuscriptHtml()` running
+`paginationScript()` (see below), which is the same HTML and the same script used to produce
+the exported PDF/booklet via `exportHtml()`/`exportHtmlBooklet()`. That makes its on-screen
+page layout the authoritative preview of PDF and booklet export - not an estimate of it. Its
+view tab is titled "SermonPrint" (`getDisplayText()`).
 
-"SermonPrint: Legacy Edit & Export" (`SermonPrintManuscriptView`, `src/manuscriptView.ts`)
-remains available for direct access, but its page guides are computed independently (see
-"Which pagination implementation is production" below) and are approximate: they are not
-guaranteed to land on the same lines as the exported PDF. The Legacy view links to "Edit
-Sermon in Print Layout" for anyone who needs accurate page breaks while editing.
+Two other views still exist and are still registered with `registerView()` for compatibility -
+`SermonPrintPrintPreviewView` (`src/ui/PrintPreviewView.ts`, a read-only version of the same
+paginated layout) and `SermonPrintManuscriptView` (`src/manuscriptView.ts`, the original
+contentEditable manuscript editor, still referred to internally as "Legacy Edit & Export") -
+but neither has a command anymore. Registration is kept so a workspace layout saved before this
+change (which may still reference one of those view types by ID) continues to load without
+erroring, and so the Legacy view's own "Open Accurate Print Editor" button keeps working. The
+Legacy view is reachable only through a leaf that already has it open; it shows a small,
+non-blocking notice explaining that its page guides are approximate and linking back to the
+SermonPrint editor. It is not part of the normal, promoted workflow.
 
 ## Active preview and export pipeline
 
@@ -32,8 +40,9 @@ with inline CSS (and, for paginated views, an inline `<script>`) and displayed i
   paginated HTML, but the rendered pages are made `contentEditable` in place. This is the
   "editable HTML" feature referenced in the branch name.
 - `SermonPrintManuscriptView` (`src/manuscriptView.ts`) — an older, still-registered
-  contentEditable editor with its own page-guide overlay. The plugin's command list labels
-  it "Legacy Edit & Export".
+  contentEditable editor with its own page-guide overlay, internally called "Legacy Edit &
+  Export". No command opens it anymore (see "Single editing workflow" above); it is only
+  reachable through a leaf that already has it open.
 
 To export, the plugin hands the current HTML (either freshly rendered from markdown, or the
 live DOM of the editable iframe) to `SermonPrintExporter` (`src/exporter.ts`), which writes it
