@@ -694,8 +694,29 @@ function paginationScript() {
     return isHeading(block) || block.tagName === "BLOCKQUOTE";
   }
 
+  function computedPaddingBottom(content) {
+    return parseFloat(window.getComputedStyle(content).paddingBottom) || 0;
+  }
+
+  // .sp-print-page-content is box-sizing: border-box with padding equal to
+  // the page margin on every side (see paginatedPrintCss()), so its own
+  // clientHeight/scrollHeight cover the full page height including that
+  // padding - not just the printable area inside it. Comparing against
+  // clientHeight let content grow into the reserved bottom padding before
+  // an overflow was detected, while the top margin stayed correct only
+  // because normal block flow can never render content above padding-top.
+  // Measuring the last placed child's actual rendered edge against the
+  // box's true printable bottom (its own bottom edge minus padding-bottom,
+  // which equals padding-top since padding is set from a single margin
+  // value) keeps both margins equal and doesn't rely on scrollHeight at all.
+  function printableBottom(content) {
+    return content.getBoundingClientRect().bottom - computedPaddingBottom(content);
+  }
+
   function pageOverflows(content) {
-    return content.scrollHeight > content.clientHeight + OVERFLOW_FUDGE_PX;
+    var last = content.lastElementChild;
+    if (!last) return false;
+    return last.getBoundingClientRect().bottom > printableBottom(content) + OVERFLOW_FUDGE_PX;
   }
 
   function pageHasContent(content) {
@@ -740,7 +761,7 @@ function paginationScript() {
 
   function lineBottomLimit(paragraph, content) {
     var marginBottom = parseFloat(window.getComputedStyle(paragraph).marginBottom || "0") || 0;
-    return content.getBoundingClientRect().bottom - marginBottom + OVERFLOW_FUDGE_PX;
+    return printableBottom(content) - marginBottom + OVERFLOW_FUDGE_PX;
   }
 
   function renderedLines(paragraph) {
