@@ -39,10 +39,14 @@ export default class SermonPrintPlugin extends Plugin {
     this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateStatusBar()));
     this.updateStatusBar();
 
+    // Primary editing command: page layout here is produced by
+    // buildPaginatedManuscriptHtml() + paginationScript(), the same code
+    // path used for PDF/booklet export (see exportHtml()/exportHtmlBooklet()
+    // below), so what the user edits is what gets exported.
     this.addCommand({
-      id: "sermonprint-edit-export",
-      name: "SermonPrint: Legacy Edit & Export",
-      callback: async () => this.openManuscriptView()
+      id: "sermonprint-editable-print-preview",
+      name: "SermonPrint: Edit Sermon in Print Layout",
+      callback: async () => openSermonPrintEditablePrintPreview(this)
     });
 
     this.addCommand({
@@ -51,10 +55,12 @@ export default class SermonPrintPlugin extends Plugin {
       callback: async () => openSermonPrintPrintPreview(this)
     });
 
+    // Kept for direct access. Its page guides are an approximate estimate,
+    // not derived from the export pipeline - see the in-view notice.
     this.addCommand({
-      id: "sermonprint-editable-print-preview",
-      name: "SermonPrint: Editable Print Preview",
-      callback: async () => openSermonPrintEditablePrintPreview(this)
+      id: "sermonprint-edit-export",
+      name: "SermonPrint: Legacy Edit & Export",
+      callback: async () => this.openManuscriptView()
     });
   }
 

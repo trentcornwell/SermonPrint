@@ -3,6 +3,21 @@
 This document describes what is actually wired up and running today. It does not describe
 planned or aspirational features.
 
+## Recommended editing view
+
+**"SermonPrint: Edit Sermon in Print Layout"** (`SermonPrintEditablePrintPreviewView`,
+`src/ui/EditablePrintPreviewView.ts`) is the recommended way to edit a sermon. Its paginated
+layout comes from `buildPaginatedManuscriptHtml()` running `paginationScript()` (see below),
+which is the same HTML and the same script used to produce the exported PDF/booklet via
+`exportHtml()`/`exportHtmlBooklet()`. That makes its on-screen page layout the authoritative
+preview of PDF and booklet export - not an estimate of it.
+
+"SermonPrint: Legacy Edit & Export" (`SermonPrintManuscriptView`, `src/manuscriptView.ts`)
+remains available for direct access, but its page guides are computed independently (see
+"Which pagination implementation is production" below) and are approximate: they are not
+guaranteed to land on the same lines as the exported PDF. The Legacy view links to "Edit
+Sermon in Print Layout" for anyone who needs accurate page breaks while editing.
+
 ## Active preview and export pipeline
 
 A sermon note's markdown is converted to HTML by `renderMarkdownToHtml()` in
