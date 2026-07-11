@@ -22,6 +22,14 @@ they are no longer part of the normal workflow and no longer appear in the comma
 
 - Half sheet: **5.5 × 8.5**
 
+## Margin
+
+The Margin setting is a single value applied identically to the SermonPrint editor,
+PDF export, and the booklet source PDF, with presets available in the settings tab
+(Compact, Standard, Printer Safe, Wide, or Custom). **Printer Safe (0.65 in) is recommended**
+for ordinary home and church printers, which usually can't print all the way to the paper's
+edge. Larger margins leave less room for text per page and may increase the total page count.
+
 ## Development
 
 ```

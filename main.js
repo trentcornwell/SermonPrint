@@ -77,6 +77,27 @@ function parsePositivePoints(value, fallback) {
 }
 
 // src/settings.ts
+var MARGIN_PRESETS = [
+  { id: "compact", label: "Compact (0.35 in)", value: "0.35in" },
+  { id: "standard", label: "Standard (0.5 in)", value: "0.5in" },
+  { id: "printer-safe", label: "Printer Safe (0.65 in) \u2013 recommended", value: "0.65in" },
+  { id: "wide", label: "Wide (0.75 in)", value: "0.75in" }
+];
+var CUSTOM_MARGIN_ID = "custom";
+function parseMarginInches(value) {
+  const parsed = Number(String(value).replace("in", "").trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+function marginPresetIdFor(margin) {
+  var _a;
+  const parsed = parseMarginInches(margin);
+  if (parsed === null) return CUSTOM_MARGIN_ID;
+  const match = MARGIN_PRESETS.find((preset) => {
+    const presetValue = parseMarginInches(preset.value);
+    return presetValue !== null && Math.abs(presetValue - parsed) < 1e-3;
+  });
+  return (_a = match == null ? void 0 : match.id) != null ? _a : CUSTOM_MARGIN_ID;
+}
 var DEFAULT_SETTINGS = {
   pageSizePreset: "half-sheet",
   pdfFolder: "Sermon PDFs",
@@ -112,7 +133,7 @@ var SermonPrintSettingTab = class extends import_obsidian.PluginSettingTab {
     this.addTextSetting("Font size", "Example: 11.5pt", "fontSize");
     this.addTextSetting("Page width", "Example: 5.5in", "pageWidth");
     this.addTextSetting("Page height", "Example: 8.5in", "pageHeight");
-    this.addTextSetting("Margin", "Applies to all sides. Example: 0.55in", "margin");
+    this.addMarginSetting();
     this.addTextSetting("Line height", "Example: 1.45", "lineHeight");
     this.addTextSetting("Bible verse color", "Used by the manuscript toolbar. Example: #8b0000", "bibleVerseColor");
     new import_obsidian.Setting(containerEl).setName("Reset page view").setDesc("Turns on the paper view, red page guides, margin ruler, and keep-together rules.").addButton(
@@ -153,6 +174,40 @@ var SermonPrintSettingTab = class extends import_obsidian.PluginSettingTab {
         this.plugin.settings.pageHeight = preset.height;
         await this.plugin.saveSettings();
         this.display();
+      })
+    );
+  }
+  /**
+   * Same single settings.margin field used everywhere else (editor,
+   * paginationScript(), PDF export, booklet source PDF) - this only adds a
+   * preset picker on top of it. Selecting a preset writes settings.margin
+   * directly; selecting Custom leaves it untouched. Both controls
+   * repaginate any open SermonPrint editor so what's on screen keeps
+   * matching what will export.
+   */
+  addMarginSetting() {
+    new import_obsidian.Setting(this.containerEl).setName("Margin preset").setDesc(
+      "Printer Safe is recommended for ordinary home and church printers, which usually can't print all the way to the paper's edge. Larger margins leave less room for text and may increase the total page count. Choose Custom to type an exact value below."
+    ).addDropdown((dropdown) => {
+      MARGIN_PRESETS.forEach((preset) => dropdown.addOption(preset.id, preset.label));
+      dropdown.addOption(CUSTOM_MARGIN_ID, "Custom");
+      dropdown.setValue(marginPresetIdFor(this.plugin.settings.margin)).onChange(async (value) => {
+        if (value === CUSTOM_MARGIN_ID) return;
+        const preset = MARGIN_PRESETS.find((candidate) => candidate.id === value);
+        if (!preset) return;
+        this.plugin.settings.margin = preset.value;
+        await this.plugin.saveSettings();
+        this.plugin.refreshOpenEditors();
+        this.display();
+      });
+    });
+    new import_obsidian.Setting(this.containerEl).setName("Margin").setDesc("Applies to all sides. Example: 0.65in. Matches the preset above when the value is one of the presets; edit freely with Custom selected.").addText(
+      (text) => text.setValue(this.plugin.settings.margin).onChange(async (value) => {
+        this.plugin.settings.margin = value;
+        await this.plugin.saveSettings();
+        this.plugin.refreshLayoutStyles();
+        this.plugin.updateStatusBar();
+        this.plugin.refreshOpenEditors();
       })
     );
   }
@@ -2482,6 +2537,20 @@ var SermonPrintEditablePrintPreviewView = class extends import_obsidian5.ItemVie
     this.lastMarkdown = await this.app.vault.read(this.file);
     this.renderMarkdown(this.lastMarkdown);
   }
+  /**
+   * Re-runs pagination with the current settings (e.g. after a margin
+   * change in the settings tab) without a disk round-trip. Serializes the
+   * currently displayed, possibly-unsaved pages back to markdown first -
+   * the same serializer Save uses - so in-progress edits survive the
+   * repagination instead of being discarded like a plain reload would.
+   */
+  repaginate() {
+    var _a;
+    if (!((_a = this.iframeEl) == null ? void 0 : _a.contentDocument)) return;
+    const markdown = this.currentPagesToMarkdown();
+    this.lastMarkdown = markdown;
+    this.renderMarkdown(markdown);
+  }
   async saveMarkdown() {
     if (!this.file) {
       new import_obsidian5.Notice("Open a sermon note first.");
@@ -2733,6 +2802,18 @@ var SermonPrintPlugin = class extends import_obsidian6.Plugin {
   }
   async exportHtmlToBooklet(html, basename2, outputPath) {
     return this.exporter.exportHtmlBooklet(html, basename2, outputPath);
+  }
+  /**
+   * Re-renders every open SermonPrint editor (Editable Print Preview) leaf
+   * with the current settings, without discarding unsaved edits - see
+   * SermonPrintEditablePrintPreviewView.repaginate(). Called after a margin
+   * change so the open editor repaginates with the exact same margin used
+   * by PDF/booklet export, instead of only taking effect on next open.
+   */
+  refreshOpenEditors() {
+    for (const leaf of this.app.workspace.getLeavesOfType(SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE)) {
+      leaf.view.repaginate();
+    }
   }
   async openManuscriptView() {
     const activeFile = this.app.workspace.getActiveFile();

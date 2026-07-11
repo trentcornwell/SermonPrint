@@ -101,6 +101,21 @@ export class SermonPrintEditablePrintPreviewView extends ItemView {
     this.renderMarkdown(this.lastMarkdown);
   }
 
+  /**
+   * Re-runs pagination with the current settings (e.g. after a margin
+   * change in the settings tab) without a disk round-trip. Serializes the
+   * currently displayed, possibly-unsaved pages back to markdown first -
+   * the same serializer Save uses - so in-progress edits survive the
+   * repagination instead of being discarded like a plain reload would.
+   */
+  repaginate(): void {
+    if (!this.iframeEl?.contentDocument) return;
+
+    const markdown = this.currentPagesToMarkdown();
+    this.lastMarkdown = markdown;
+    this.renderMarkdown(markdown);
+  }
+
   private async saveMarkdown(): Promise<void> {
     if (!this.file) {
       new Notice("Open a sermon note first.");

@@ -65,6 +65,19 @@ export default class SermonPrintPlugin extends Plugin {
     return this.exporter.exportHtmlBooklet(html, basename, outputPath);
   }
 
+  /**
+   * Re-renders every open SermonPrint editor (Editable Print Preview) leaf
+   * with the current settings, without discarding unsaved edits - see
+   * SermonPrintEditablePrintPreviewView.repaginate(). Called after a margin
+   * change so the open editor repaginates with the exact same margin used
+   * by PDF/booklet export, instead of only taking effect on next open.
+   */
+  refreshOpenEditors(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(SERMONPRINT_EDITABLE_PRINT_PREVIEW_VIEW_TYPE)) {
+      (leaf.view as SermonPrintEditablePrintPreviewView).repaginate();
+    }
+  }
+
   async openManuscriptView(): Promise<void> {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
